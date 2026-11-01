@@ -8,6 +8,7 @@ from .common import (completed, file_hash, finish, read_json, restore_rng, rng_s
 from .xland import ACTION_NAMES, VectorEnv, features, load_bank, timesteps
 from miniwam.ppo import generalized_advantages
 from miniwam.utils import save_checkpoint
+from .progress import Progress, log
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -71,6 +72,7 @@ def train_expert(bank_dir, config, out, device, resume=False):
     bank_dir = Path(bank_dir)
     out = stage(out, {"ppo": config, "bank_sha256": file_hash(bank_dir/"manifest.json")}, resume)
     if completed(out):
+        log("ПРОПУСК: PPO уже обучен", checkpoint=out/"best.pt")
         return out / "best.pt"
     rng = seed(config["seed"])
     depth = read_json(bank_dir / "manifest.json")["config"]["depth"]
@@ -87,6 +89,8 @@ def train_expert(bank_dir, config, out, device, resume=False):
         leaves, tree = jax.tree.flatten(env.ts)
         env.ts = jax.tree.unflatten(tree, [jnp.asarray(a.numpy(), dtype=b.dtype) for a, b in zip(saved["env_leaves"], leaves)])
         restore_rng(saved["rng"], rng)
+        log("PPO ВОССТАНОВЛЕН", update=start, checkpoint=out/"latest.pt")
+    progress = Progress("PPO: обновления", config["updates"], initial=start)
     update = start
     for update in range(start+1, config["updates"]+1) if consecutive < 3 else ():
         actor.train()
@@ -124,6 +128,7 @@ def train_expert(bank_dir, config, out, device, resume=False):
                 nn.utils.clip_grad_norm_(actor.parameters(), 0.5)
                 optimizer.step()
                 losses.append(float(loss.detach()))
+        progress.update(update, loss=float(np.mean(losses)), env_steps=update*config["num_envs"]*config["rollout_steps"])
         if update % config["eval_every"] == 0 or update == config["updates"]:
             actor.eval()
             train_eval = evaluate(actor, train, depth, device)
@@ -132,21 +137,26 @@ def train_expert(bank_dir, config, out, device, resume=False):
             consecutive = consecutive+1 if key == (1., 1.) else 0
             record = {"update": update, "loss": float(np.mean(losses)), "train_sr": train_eval["sr"], "val_sr": val_eval["sr"]}
             history.append(record)
-            print(f"PPO {record}", flush=True)
+            log("PPO VALIDATION", update=update, loss=record["loss"],
+                train_sr=f"{train_eval['sr']:.1%}", val_sr=f"{val_eval['sr']:.1%}", stable_checks=f"{consecutive}/3")
             if key >= best:
                 best = key
                 save_checkpoint(out / "best.pt", {"model": actor.state_dict(), "update": update, "selection": record})
+                log("СОХРАНЕН ЛУЧШИЙ PPO", checkpoint=out/"best.pt", update=update)
             leaves = [np.asarray(x).copy() for x in jax.tree.leaves(env.ts)]
             save_checkpoint(out / "latest.pt", {"model": actor.state_dict(), "optimizer": optimizer.state_dict(),
                 "update": update, "best": list(best), "consecutive": consecutive, "history": history,
                 "env_leaves": [torch.from_numpy(x.astype(np.int64) if np.issubdtype(x.dtype, np.integer) else x) for x in leaves],
                 "rng": rng_state(rng)})
             write_json(out / "metrics.json", history)
+            log("СОХРАНЕН CHECKPOINT PPO", checkpoint=out/"latest.pt", update=update)
             if consecutive >= 3:
+                log("PPO: РАННЯЯ ОСТАНОВКА", reason="SR 100% на train/val стабилен три проверки")
                 break
     actor = load_actor(out / "best.pt", device)
     evaluations = {s: evaluate(actor, load_bank(bank_dir, s), depth, device) for s in ("train", "val", "test")}
     evaluations["test_sampled_T1"] = evaluate(actor, load_bank(bank_dir, "test"), depth, device, temperature=1.)
+    log("ИТОГ PPO", **{f"{s}_sr": f"{evaluations[s]['sr']:.1%}" for s in ("train", "val", "test")})
     write_json(out / "evaluation.json", evaluations)
     write_json(out / "gate.json", {"passed": all(evaluations[s]["sr"] == 1. for s in ("train", "val")),
         "criterion": "100% greedy SR on every train and validation bank task; test not used for PPO selection"})

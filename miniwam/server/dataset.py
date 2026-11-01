@@ -6,6 +6,7 @@ from pathlib import Path
 from .common import completed, file_hash, finish, read_json, seed, stage, write_json
 from .expert import load_actor
 from .xland import ACTION_NAMES, features, load_bank, render_ts, simulator, single_ts
+from .progress import Progress, log
 import imageio.v3 as iio
 import jax
 import numpy as np
@@ -18,6 +19,7 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
     out = stage(out, {"collection": config, "bank_sha256": file_hash(bank_dir/"manifest.json"),
                       "expert_sha256": file_hash(expert_path)}, resume)
     if completed(out):
+        log("ПРОПУСК: датасет уже собран и проверен", path=out)
         return out
     depth = read_json(bank_dir / "manifest.json")["config"]["depth"]
     rng = seed(config["seed"])
@@ -52,6 +54,7 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
         for k, arr in arrays.items():
             arr[:] = -1 if k == "actions" else 0
         metadata = []
+        progress = Progress(f"Сбор RGB {split}: эпизоды", n)
         for task in range(len(bank["goal"])):
             for repeat in range(repeats):
                 i = task*repeats+repeat
@@ -90,6 +93,7 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
                 if repeat == 6 and task < 4:
                     frames = np.asarray(arrays["observations"][i, :t+2])
                     iio.imwrite(directory/f"episode_{task}.mp4", frames, fps=2, macro_block_size=1)
+                progress.update(i+1)
         for arr in arrays.values():
             arr.flush()
         (directory / "episodes.jsonl").write_text("".join(__import__("json").dumps(x)+"\n" for x in metadata))
@@ -99,7 +103,8 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
             "behavior_sr": float(arrays["success"].mean()), "pure_expert_sr": float(expert_success.mean()),
             "bytes": sum(p.stat().st_size for p in directory.iterdir()), "files_sha256": files}
         paths.extend(f"{split}/{name}" for name in files)
-        print(f"Collected {split}: {manifest['splits'][split]['episodes']} episodes; pure PPO SR={expert_success.mean():.3f}", flush=True)
+        log("ДАТАСЕТ СОБРАН", split=split, episodes=n,
+            pure_expert_sr=f"{expert_success.mean():.1%}", behavior_sr=f"{arrays['success'].mean():.1%}")
         del arrays
     write_json(out / "manifest.json", manifest)
     write_json(out / "audit.json", audit(out, bank_dir))
@@ -128,6 +133,7 @@ def audit(directory, bank_dir):
                 or not np.array_equal(valid.sum(1), arrays["lengths"])):
             raise ValueError("Invalid action/mask/padding alignment")
         coverage = set()
+        progress = Progress(f"Replay-аудит RGB {split}: эпизоды", len(a))
         # Replay every frame; no approximate sample or shape-only audit.
         for i in range(len(a)):
             task = int(arrays["task_ids"][i])
@@ -151,6 +157,7 @@ def audit(directory, bank_dir):
                 raise ValueError("SR/termination mismatch")
             for t in range(length+1, depth+1):
                 np.testing.assert_array_equal(arrays["observations"][i, t], arrays["observations"][i, length])
+            progress.update(i+1)
         if len(coverage) != 6*len(bank["goal"]):
             raise ValueError("Missing counterfactual action coverage")
         result["splits"][split] = {"episodes": len(a), "replayed_transitions": int(valid.sum())}

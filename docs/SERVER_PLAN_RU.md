@@ -100,8 +100,8 @@ bash scripts/setup_server.sh
 
    ```bash
    mkdir -p logs
-   nohup bash scripts/train_server.sh one-step > logs/one-step.log 2>&1 < /dev/null &
-   tail -f logs/one-step.log
+   nohup bash scripts/train_server.sh one-step > logs/one-step-console.log 2>&1 < /dev/null &
+   tail -F logs/one-step-latest.log
    ```
 
    Основная конфигурация: S/4, 12 слоёв, 384 hidden, 6 heads, additive action conditioning; action decoder — 2 слоя, hidden 256, 4 heads, dropout 0.1. Batch 8, lr 1e-4, AdamW weight decay 0.01, warmup 500, grad clip 1, максимум 60 000 обновлений, BF16 на H100. Diffusion: 1000 cosine steps, v prediction, раздельные frame timesteps, чистый текущий контекст, 20 DDIM steps при оценке.
@@ -122,7 +122,8 @@ bash scripts/setup_server.sh
 
    ```bash
    # Всё последовательно, с gate между стадиями:
-   nohup bash scripts/train_server.sh all > logs/all.log 2>&1 < /dev/null &
+   nohup bash scripts/train_server.sh all > logs/all-console.log 2>&1 < /dev/null &
+   tail -F logs/all-latest.log
    ```
 
    One-step: n=1, три модели. Two-step: n={1,2}, шесть моделей. Three-step: n={1,2,3}, девять моделей. Конфиги с n больше длины эпизода отклоняются. В конце короткого/успешного эпизода несуществующие targets маскируются.
@@ -170,6 +171,11 @@ bash scripts/setup_server.sh
 Для video/joint сохраняются фактическая latent MSE, persistence MSE, MSE при изменённых действиях, величина изменения прогнозов, RGB PSNR, changed-pixel MSE, ADE/FDE в клетках. Дополнительный `counterfactual` сопоставляет шесть прогнозов из одной сцены с шестью соответствующими настоящими продолжениями, используя одинаковый diffusion noise; одна чувствительность к действию не считается правильной динамикой. Координаты прогноза оценивает visual template matcher; сравнение с точными координатами симулятора сохраняется отдельно от сравнения с VAE-реконструкцией. Эти метрики нужно читать вместе с MP4.
 
 ## Resume, место и воспроизводимость
+
+`scripts/train_server.sh` автоматически сохраняет полный stdout/stderr каждого запуска
+в `logs/<target>-YYYYMMDD-HHMMSS-PID.log` и обновляет ссылку `<target>-latest.log`.
+Лог содержит время UTC, стадии, прогресс, ETA, loss/SR, checkpoints и итоговый exit code.
+Подробные команды наблюдения и расшифровка сообщений: [логи в плане](../plan.md#логи-и-наблюдение-за-запуском).
 
 Повтор той же команды использует завершённые стадии по manifest/hash и продолжает незавершённые. Сохраняются optimizer, scheduler, CPU/CUDA/NumPy RNG, для PPO — состояние всех векторных сред. Потерянная работа ограничена частотой checkpoints; гарантии побитового совпадения CUDA-ядер не заявляются.
 

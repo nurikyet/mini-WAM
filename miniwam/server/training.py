@@ -9,6 +9,7 @@ from .evaluation import closed_loop, counterfactual_metrics, offline
 from .model import NanoWAM, autocast
 from .vae import LatentWindows, load_vae
 from miniwam.utils import save_checkpoint
+from .progress import Progress, log, logged_stage
 import numpy as np
 import torch
 
@@ -32,6 +33,7 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
         "bank_sha256": file_hash(bank_dir/"manifest.json"), "dataset_sha256": file_hash(dataset/"manifest.json"),
         "latents_sha256": file_hash(cache/"complete.json")}, resume)
     if completed(out):
+        log("ПРОПУСК: модель уже обучена", mode=mode, n=horizon, seed=model_seed, checkpoint=out/"best.pt")
         return out / "best.pt"
     rng = seed(model_seed)
     train_windows, val_windows = [LatentWindows(dataset, cache, s, horizon) for s in ("train", "val")]
@@ -52,6 +54,8 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
         scheduler.load_state_dict(saved["scheduler"])
         start, best, consecutive, history = saved["step"], tuple(saved["best"]), saved["consecutive"], saved["history"]
         restore_rng(saved["rng"], rng)
+        log("МОДЕЛЬ ВОССТАНОВЛЕНА", mode=mode, n=horizon, seed=model_seed, step=start, checkpoint=out/"latest.pt")
+    progress = Progress(f"NanoWM {mode} n={horizon} seed={model_seed}", config["updates"], initial=start)
     step = start
     stop = False
     for step in range(start+1, config["updates"]+1) if consecutive < config["patience"] else ():
@@ -68,13 +72,16 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
             raise FloatingPointError(f"Nonfinite {mode} gradients at step {step}")
         optimizer.step()
         scheduler.step()
-        if step % 50 == 0 or step == 1:
-            print(f"{mode} n={horizon} seed={model_seed} step={step}/{config['updates']} loss={float(loss):.5f} {losses}", flush=True)
+        if step % 50 == 0 or step == start+1 or step == config["updates"]:
+            progress.update(step, force=True, loss=float(loss), lr=optimizer.param_groups[0]["lr"],
+                grad_norm=float(grad_norm), gpu_memory_gib=torch.cuda.memory_allocated(device)/2**30 if device.type == "cuda" else None,
+                **losses)
         if step % config["eval_every"] == 0 or step == config["updates"]:
             model.eval()
-            validation = offline(model, val_windows, device, config["val_windows"], config["ddim_steps"],
-                vae, dataset, "val", out/"validation")
-            control = closed_loop(model, vae, bank_dir, "val", device, config["ddim_steps"])
+            with logged_stage("Валидация NanoWM: прогнозы и closed-loop SR", mode=mode, n=horizon, step=step):
+                validation = offline(model, val_windows, device, config["val_windows"], config["ddim_steps"],
+                    vae, dataset, "val", out/"validation")
+                control = closed_loop(model, vae, bank_dir, "val", device, config["ddim_steps"])
             key = (control["sr"], -validation["loss"])
             dynamics_ok = mode == "policy" or validation["latent_mse"] < validation["persistence_latent_mse"]
             consecutive = consecutive+1 if control["sr"] == 1. and dynamics_ok else 0
@@ -86,17 +93,22 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
                 best = key
                 save_checkpoint(out/"best.pt", {"model": model.state_dict(), "mode": mode, "horizon": horizon,
                     "model_config": config, "seed": model_seed, "step": step, "selection": record})
-            print(f"Validation {mode} n={horizon}: SR={control['sr']:.3f}, loss={validation['loss']:.5f}", flush=True)
+                log("СОХРАНЕНА ЛУЧШАЯ МОДЕЛЬ", checkpoint=out/"best.pt", step=step)
+            log("NanoWM VALIDATION", mode=mode, n=horizon, step=step, val_sr=f"{control['sr']:.1%}",
+                loss=validation["loss"], dynamics_ok=dynamics_ok, stable_checks=f"{consecutive}/{config['patience']}")
             stop = consecutive >= config["patience"]
         if step % config["checkpoint_every"] == 0 or step % config["eval_every"] == 0 or step == config["updates"]:
             save_checkpoint(out/"latest.pt", {"model": model.state_dict(), "optimizer": optimizer.state_dict(),
                 "scheduler": scheduler.state_dict(), "step": step, "best": list(best), "consecutive": consecutive,
                 "history": history, "rng": rng_state(rng)})
+            log("СОХРАНЕН CHECKPOINT", checkpoint=out/"latest.pt", step=step)
         if stop:
+            log("РАННЯЯ ОСТАНОВКА", mode=mode, n=horizon, step=step, reason="стабильный validation SR и проверка динамики")
             break
     # Test is opened only after best checkpoint selection finishes.
     model, saved = load_model(out/"best.pt", device)
     for split in ("train", "val", "test"):
+        log("НАЧАЛО ИТОГОВОЙ ОЦЕНКИ", mode=mode, n=horizon, split=split, checkpoint_step=saved["step"])
         control = closed_loop(model, vae, bank_dir, split, device, config["ddim_steps"], out=out/split)
         metrics = offline(model, LatentWindows(dataset, cache, split, horizon), device, config["val_windows"],
                           config["ddim_steps"], vae, dataset, split, out/split)
@@ -106,6 +118,8 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
         if split == "test" and mode != "video":
             result["sampled_T1"] = closed_loop(model, vae, bank_dir, split, device, config["ddim_steps"], temperature=1.)
         write_json(out/split/"evaluation.json", result)
+        log("ИТОГ МОДЕЛИ", mode=mode, n=horizon, split=split, sr=f"{control['sr']:.1%}",
+            successes=f"{control['successes']}/{control['episodes']}", report=out/split/"evaluation.json")
     finish(out, ["best.pt", "latest.pt", "metrics.json", "train/evaluation.json", "val/evaluation.json", "test/evaluation.json"],
            steps=step, parameters=sum(p.numel() for p in model.parameters()), runtime=runtime())
     return out/"best.pt"

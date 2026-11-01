@@ -8,6 +8,7 @@ from .common import read_json
 from .dataset import load_arrays
 from .model import autocast
 from .vae import decode, encode
+from .progress import Progress
 from .xland import (ACTION_NAMES, BOARD, BOARD_X, TILE, GOAL_TYPES, load_bank,
                     render_tile, render_ts, simulator, single_ts)
 import imageio.v3 as iio
@@ -123,6 +124,7 @@ def closed_loop(model, vae, bank_dir, split, device, ddim_steps=20, temperature=
     rng = np.random.default_rng(eval_seed)
     successes, traces = [], []
     by_type = {str(t): {"successes": 0, "episodes": 0} for t in GOAL_TYPES}
+    progress = Progress(f"Closed-loop {model.mode} {split} T={temperature}: эпизоды", len(bank["goal"]))
     for task in range(len(bank["goal"])):
         ts = single_ts(bank, task)
         frames, trace = [render_ts(ts)], []
@@ -154,6 +156,7 @@ def closed_loop(model, vae, bank_dir, split, device, ddim_steps=20, temperature=
         if out is not None and (task < 3 or (not success and len(traces) <= 6)):
             Path(out).mkdir(parents=True, exist_ok=True)
             iio.imwrite(Path(out)/f"task_{task}_{'success' if success else 'failure'}.mp4", np.stack(frames), fps=2, macro_block_size=1)
+        progress.update(task+1, successes=sum(successes), sr=f"{np.mean(successes):.1%}")
     n, k = len(successes), sum(successes)
     # Wilson interval, plus exact finite-bank count. No population certainty claim.
     z = 1.959963984540054

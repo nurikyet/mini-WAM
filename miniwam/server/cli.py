@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 
 from .common import ROOT, completed, read_json, require_server, runtime, stage, verify_files, write_json
+from .progress import log, logged_stage
 
 
 def validate_config(c):
@@ -132,20 +133,32 @@ def pipeline(args, device):
     out = stage(args.out, {"pipeline": config}, args.resume)
     write_json(out/"resolved_config.json", config)
     write_json(out/"runtime.json", runtime())
-    banks = make_banks(config["bank"], ROOT/"data", out/"banks", args.resume)
-    expert = train_expert(banks, config["ppo"], out/"expert", device, args.resume)
+    with logged_stage("1/6: подготовка и аудит банков XLand", depth=config["bank"]["depth"]):
+        banks = make_banks(config["bank"], ROOT/"data", out/"banks", args.resume)
+    with logged_stage("2/6: обучение PPO по состояниям"):
+        expert = train_expert(banks, config["ppo"], out/"expert", device, args.resume)
     if not read_json(out/"expert/gate.json")["passed"]:
         summarize(out)
         raise RuntimeError(f"PPO train/val SR below 100%; inspect {out/'expert/evaluation.json'}. No WAM training started.")
-    dataset = collect(banks, expert, config["collection"], out/"dataset", device, args.resume)
-    cache = cache_latents(dataset, out/"latents", device, args.resume)
-    if not (cache/"scorer_controls.json").exists():
-        scorer_controls(banks, load_vae(device), device, cache)
+    log("ПРОВЕРКА PPO ПРОЙДЕНА", train_val_sr="100%")
+    with logged_stage("3/6: сбор и replay RGB-датасета"):
+        dataset = collect(banks, expert, config["collection"], out/"dataset", device, args.resume)
+    with logged_stage("4/6: кодирование frozen VAE и проверка реконструкций"):
+        cache = cache_latents(dataset, out/"latents", device, args.resume)
+    with logged_stage("5/6: диагностический визуальный контроль"):
+        if not (cache/"scorer_controls.json").exists():
+            scorer_controls(banks, load_vae(device), device, cache)
+        else:
+            log("ПРОПУСК: визуальный контроль уже сохранен", path=cache/"scorer_controls.json")
+    model_count = 3*len(config["horizons"])*len(config["seeds"])
+    model_index = 0
     for mode in ("policy", "video", "joint"):
         for horizon in config["horizons"]:
             for model_seed in config["seeds"]:
-                train(banks, dataset, cache, config["model"], mode, horizon, model_seed,
-                      out/f"models/{mode}_n{horizon}_seed{model_seed}", device, args.resume)
+                model_index += 1
+                with logged_stage(f"6/6: модель {model_index}/{model_count}", mode=mode, n=horizon, seed=model_seed):
+                    train(banks, dataset, cache, config["model"], mode, horizon, model_seed,
+                          out/f"models/{mode}_n{horizon}_seed{model_seed}", device, args.resume)
                 summarize(out)
     return summarize(out)
 
@@ -175,7 +188,8 @@ def main(argv=None):
             raise RuntimeError("Results must be inside your persistent server HOME")
         args.out = str(destination)
     if args.command == "doctor":
-        doctor(device, args.assets)
+        with logged_stage("Doctor: CUDA, BF16, NanoWM и ресурсы"):
+            doctor(device, args.assets)
     elif args.command == "audit":
         from .dataset import audit as audit_dataset
         from .xland import audit_banks

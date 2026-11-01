@@ -7,6 +7,7 @@ from .common import read_json, write_json
 from .evaluation import visual_score
 from .vae import decode, encode
 from .xland import load_bank, render_ts, simulator, single_ts
+from .progress import Progress, log
 import jax
 import numpy as np
 import torch
@@ -22,6 +23,7 @@ def scorer_controls(bank_dir, vae, device, out):
               "uses_oracle_futures": True, "used_for_training_or_control": False, "controls": {}}
     for label in ("perfect_rgb", "vae_reconstructed_rgb"):
         successes, failures = [], []
+        progress = Progress(f"Визуальный контроль {label}: эпизоды", len(bank["goal"]))
         for task in range(len(bank["goal"])):
             ts = single_ts(bank, task)
             trace = []
@@ -44,7 +46,9 @@ def scorer_controls(bank_dir, vae, device, out):
             successes.append(success)
             if not success:
                 failures.append({"task_id": task, "goal": bank["goal"][task].tolist(), "trace": trace})
+            progress.update(task+1, successes=sum(successes))
         report["controls"][label] = {"episodes": len(successes), "successes": sum(successes),
                                       "sr": float(np.mean(successes)), "failures": failures}
+        log("ИТОГ ВИЗУАЛЬНОГО КОНТРОЛЯ", control=label, sr=f"{np.mean(successes):.1%}")
     write_json(Path(out)/"scorer_controls.json", report)
     return report

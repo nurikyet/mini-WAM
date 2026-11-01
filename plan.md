@@ -45,9 +45,9 @@ cat runs/server/smoke/summary.md
 ```bash
 mkdir -p logs
 nohup bash scripts/train_server.sh one-step \
-  > logs/one-step.log 2>&1 < /dev/null &
+  > logs/one-step-console.log 2>&1 < /dev/null &
 echo $!
-tail -f logs/one-step.log
+tail -F logs/one-step-latest.log
 ```
 
 После завершения:
@@ -61,7 +61,8 @@ cat runs/server/one_step/diagnosis.json
 
 ```bash
 nohup bash scripts/train_server.sh all \
-  > logs/all.log 2>&1 < /dev/null &
+  > logs/all-console.log 2>&1 < /dev/null &
+tail -F logs/all-latest.log
 ```
 
 `all` повторно использует завершённый one-step. Также доступны отдельные `two-step` и `three-step`. Повтор той же команды продолжает прерванное обучение из `latest.pt`. После перезапуска сервера сохранённые окружение и результаты остаются в вашем HOME; процесс нужно запустить заново.
@@ -71,6 +72,55 @@ nohup bash scripts/train_server.sh all \
 ```bash
 OUT_ROOT=runs/server-v2 bash scripts/train_server.sh one-step
 ```
+
+## Логи и наблюдение за запуском
+
+`train_server.sh` сам сохраняет весь stdout/stderr, включая traceback, и одновременно
+показывает вывод в терминале. Для каждого запуска создаётся отдельный файл, например
+`logs/all-YYYYMMDD-HHMMSS-PID.log`. Время в логах указано в UTC.
+
+Ссылки `logs/all-latest.log`, `logs/one-step-latest.log` и `logs/smoke-latest.log`
+всегда указывают на последний принятый запуск соответствующей команды. Старые
+файлы сохраняются. Отказ из-за уже работающего процесса не заменяет ссылку на его лог.
+
+```bash
+# Следить из другой SSH-сессии; -F продолжает слежение при новом запуске:
+tail -F logs/all-latest.log
+
+# Последние сообщения после завершения или ошибки:
+tail -n 100 logs/all-latest.log
+
+# Найти метрики, ошибки и итог:
+rg 'VALIDATION|ИТОГ|ОШИБКА|SR НИЖЕ' logs/all-latest.log
+```
+
+В логе последовательно отображаются подготовка XLand, PPO, сбор и replay датасета,
+VAE-кеш, визуальные контроли и каждая модель с её mode/n/seed. Прогресс включает
+число выполненных задач/кадров/обновлений, процент, прошедшее время и приблизительный
+ETA. Для обучения выводятся loss, learning rate, validation SR, для NanoWM также
+grad norm и занятая память GPU. Сохранение, восстановление и пропуск готовых стадий
+обозначаются явно.
+
+Во время долгих стадий, включая проверки и валидацию, примерно раз в 30 секунд
+печатается `ОЖИДАНИЕ ЗАВЕРШЕНИЯ СТАДИИ`. Это сообщение о незавершённой стадии;
+численный прогресс показывают строки `ПРОГРЕСС` с растущим `done`. ETA может
+изменяться после компиляции и длительных validation-проверок.
+
+Итог запуска различает:
+
+- `ГОТОВО ... код=0` — команда выполнена; для smoke это проверка работоспособности;
+- `SR НИЖЕ 100% ... код=2` — критерий серии не выполнен, нужно открыть `summary.md` и `diagnosis.json`;
+- `ОШИБКА ... код=...` — ошибка выполнения, подробности и traceback находятся выше.
+
+Папку логов и период сообщений можно изменить:
+
+```bash
+LOG_DIR=logs/my-series MINIWAM_LOG_INTERVAL=10 bash scripts/train_server.sh one-step
+```
+
+Проверка совместимости исходников при resume сохранена: после обновления старого
+кода на версию с этим логированием для прежних результатов потребуется новый
+`OUT_ROOT`, например `runs/server-v2`.
 
 ## Что именно обучается
 

@@ -14,6 +14,7 @@ import urllib.request
 
 from .common import (BENCHMARK_FILE, BENCHMARK_SHA256, HF_REVISION, completed,
                      file_hash, finish, read_json, save_npz, stage, write_json)
+from .progress import Progress, log
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -36,16 +37,26 @@ def fetch_benchmark(directory):
     if not path.exists():
         url = f"https://huggingface.co/datasets/Howuhh/xland_minigrid/resolve/{HF_REVISION}/{BENCHMARK_FILE}"
         temporary = path.with_suffix(".download")
-        urllib.request.urlretrieve(url, temporary)
+        log("СКАЧИВАНИЕ BENCHMARK", name=BENCHMARK_FILE, path=path)
+        download = None
+        def downloaded(block, size, total):
+            nonlocal download
+            if total > 0:
+                if download is None:
+                    download = Progress("Загрузка trivial-1m: байты", total)
+                download.update(min(block*size, total))
+        urllib.request.urlretrieve(url, temporary, reporthook=downloaded)
         if file_hash(temporary) != BENCHMARK_SHA256:
             temporary.unlink()
             raise ValueError("trivial-1m download checksum mismatch")
         temporary.replace(path)
+    log("ПРОВЕРКА SHA256 BENCHMARK", path=path)
     if file_hash(path) != BENCHMARK_SHA256:
         raise ValueError("trivial-1m file checksum mismatch")
     # Historical pickle is loaded only after authentication by pinned SHA256.
     with jax.default_device(jax.devices("cpu")[0]), bz2.open(path, "rb") as f:
         data = pickle.load(f)
+    log("BENCHMARK ПРОЧИТАН", rows=len(data["goals"]))
     return {k: np.asarray(data[k]) for k in ("goals", "rules", "init_tiles", "num_rules")}
 
 
@@ -60,6 +71,7 @@ def canonical_keys(goals, rules):
 def make_banks(config, data_dir, out, resume=False):
     out = stage(out, {"bank": config, "benchmark_sha256": BENCHMARK_SHA256}, resume)
     if completed(out):
+        log("ПРОПУСК: банки уже подготовлены и проверены", path=out)
         return out
     data = fetch_benchmark(data_dir)
     pickable = np.array([3, 4, 5, 7, 11, 12])
@@ -99,6 +111,7 @@ def make_banks(config, data_dir, out, resume=False):
         if n < 3:
             raise ValueError("At least three tasks per split")
         records, fingerprints = [], set()
+        progress = Progress(f"Банк XLand {split}: раскладки", n)
         by_type = {g: [i for i in groups if unique[i, 0] == g] for g in GOAL_TYPES}
         attempts = 0
         while len(records) < n:
@@ -140,6 +153,7 @@ def make_banks(config, data_dir, out, resume=False):
                 raise ValueError("Identical initial RGB across splits")
             fingerprints.add(fingerprint)
             records.append(record)
+            progress.update(len(records))
         frame_sets |= fingerprints
         save_npz(out / f"{split}.npz", **{k: np.stack([r[k] for r in records]) for k in records[0]})
         manifest["splits"][split] = {"tasks": n, "goal_groups": len(groups), "group_ids": groups,
@@ -263,6 +277,7 @@ def audit_banks(directory):
     seen = set()
     for split in ("train", "val", "test"):
         bank = load_bank(directory, split)
+        progress = Progress(f"Аудит достижимости {split}: раскладки", len(bank["goal"]))
         groups = set(map(int, bank["group_id"]))
         if seen & groups:
             raise ValueError("Goal group overlap")
@@ -275,6 +290,7 @@ def audit_banks(directory):
             if not possible[-1] or possible[:-1].any():
                 raise ValueError(f"Incorrect minimum depth for {split}/{i}: {possible}")
             shortest.append(depth)
+            progress.update(i+1)
         result["splits"][split] = {"tasks": len(shortest), "solvable_fraction": 1.0,
                                     "exact_depth_verified": True, "unique_goal_groups": len(groups)}
     return result

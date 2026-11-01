@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .common import completed, file_hash, finish, stage, write_json
 from .dataset import load_arrays
+from .progress import Progress, log
 import numpy as np
 import torch
 
@@ -32,6 +33,7 @@ def load_vae(device):
     from diffusers import AutoencoderKL
     source = vae_source()
     kwargs = {"local_files_only": True} if Path(source).is_dir() else {"revision": VAE_REVISION}
+    log("ЗАГРУЗКА FROZEN VAE", source=source, device=device)
     # Frozen VAE always FP32. No GradScaler or image augmentation in this cache.
     vae = AutoencoderKL.from_pretrained(source, **kwargs).to(device=device, dtype=torch.float32)
     return vae.eval().requires_grad_(False)
@@ -57,6 +59,7 @@ def cache_latents(dataset, out, device, resume=False, batch_size=32):
     out = stage(out, {"dataset_sha256": file_hash(dataset/"manifest.json"), "vae": identity,
                       "scale": SCALE, "posterior": "mean"}, resume)
     if completed(out):
+        log("ПРОПУСК: VAE-кеш уже готов", path=out)
         return out
     vae = load_vae(device)
     report, files = {}, ["vae.json", "reconstruction.json"]
@@ -68,8 +71,10 @@ def cache_latents(dataset, out, device, resume=False, batch_size=32):
                                           shape=(n, frames, 4, 16, 16))
         flat = rgb.reshape(-1, 128, 128, 3)
         flat_z = latents.reshape(-1, 4, 16, 16)
+        progress = Progress(f"VAE {split}: кадры", len(flat))
         for start in range(0, len(flat), batch_size):
             flat_z[start:start+batch_size] = encode(vae, flat[start:start+batch_size], device).cpu().numpy()
+            progress.update(min(start+batch_size, len(flat)))
         latents.flush()
         # Isolate representation failures before blaming diffusion or planning.
         sample_count = min(16, n)
@@ -92,7 +97,7 @@ def cache_latents(dataset, out, device, resume=False, batch_size=32):
             Image.fromarray((montage.clip(0, 1)*255).astype(np.uint8)).save(out/name)
             files.append(name)
         files.append(f"{split}.npy")
-        print(f"Cached {split}: {n} episodes, {latents.nbytes/2**20:.1f} MiB", flush=True)
+        log("VAE-КЕШ СОХРАНЕН", split=split, episodes=n, size_mib=latents.nbytes/2**20, psnr=report[split]["psnr"])
     write_json(out / "vae.json", {**identity, "scale": SCALE})
     write_json(out / "reconstruction.json", report)
     finish(out, files)
