@@ -1,0 +1,52 @@
+{
+  "bank": {
+    "depth": 1,
+    "split_seed": 2026,
+    "tasks": {
+      "train": 12,
+      "val": 3,
+      "test": 3
+    }
+  },
+  "ppo": {
+    "updates": 1000,
+    "num_envs": 128,
+    "rollout_steps": 16,
+    "epochs": 4,
+    "minibatch_size": 256,
+    "lr": 0.001,
+    "entropy_coef": 0.01,
+    "eval_every": 10,
+    "seed": 42
+  },
+  "collection": {
+    "train_repeats": 7,
+    "eval_repeats": 7,
+    "epsilon": 0.25,
+    "seed": 43
+  },
+  "model": {
+    "width": 64,
+    "layers": 2,
+    "heads": 4,
+    "patch_size": 4,
+    "action_width": 32,
+    "batch_size": 4,
+    "updates": 20,
+    "lr": 0.0001,
+    "weight_decay": 0.01,
+    "warmup": 2,
+    "image_weight": 1.0,
+    "eval_every": 20,
+    "checkpoint_every": 10,
+    "patience": 3,
+    "val_windows": 6,
+    "ddim_steps": 4
+  },
+  "horizons": [
+    1
+  ],
+  "seeds": [
+    3407
+  ]
+}

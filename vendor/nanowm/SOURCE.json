@@ -1,0 +1,8 @@
+{
+  "upstream_commit": "cc1f151a9d8c7d7afd0cdc5de6a9ae220a7c90c0",
+  "files_sha256": {
+    "LICENSE": "d3e3e7b9385594f24f0651fc08a563872d3a27dd5e2d62ab25b8dc8f64dc3921",
+    "nanowm.py": "67bdf4fcc5fdedd076832a5929ba850c66db84035f4434916982114a6e7dd44d"
+  },
+  "local_patch": null
+}

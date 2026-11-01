@@ -2,13 +2,31 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Override PYTHON/DEVICE/OUT_ROOT for a different environment, CPU or storage disk.
-miniwam_python="${PYTHON:-.venv-wam/bin/python}"
-miniwam_device="${DEVICE:-cuda}"
-miniwam_out_root="${OUT_ROOT:-runs}"
-"$miniwam_python" -m miniwam --device "$miniwam_device" doctor
-"$miniwam_python" -m miniwam --device "$miniwam_device" pipeline \
-  --config configs/one_step.json --out "$miniwam_out_root/one_step" --resume --require-perfect
-# The next command runs only after every one-step test SR reaches 100%.
-"$miniwam_python" -m miniwam --device "$miniwam_device" pipeline \
-  --config configs/two_step.json --out "$miniwam_out_root/two_step" --resume --require-perfect
+miniwam_python="${PYTHON:-.venv-server/bin/python}"
+miniwam_out_root="${OUT_ROOT:-runs/server}"
+miniwam_target="${1:-one-step}"
+export TMPDIR="$HOME/tmp"
+export JAX_PLATFORMS=cpu XLA_PYTHON_CLIENT_PREALLOCATE=false WANDB_MODE=disabled
+export HF_HUB_DISABLE_XET=1 PYTHONUNBUFFERED=1
+mkdir -p "$TMPDIR" "$miniwam_out_root"
+command -v flock >/dev/null || { echo 'flock is required to avoid competing GPU runs.' >&2; exit 1; }
+exec 9>"$miniwam_out_root/.run.lock"
+flock -n 9 || { echo 'Another server experiment holds this output root.' >&2; exit 1; }
+"$miniwam_python" -m miniwam.server doctor
+run_stage() {
+  "$miniwam_python" -m miniwam.server pipeline --config "configs/server/$1.json" \
+    --out "$miniwam_out_root/$1" --resume --require-perfect
+}
+case "$miniwam_target" in
+  smoke)
+    "$miniwam_python" -m miniwam.server pipeline --config configs/server/smoke.json \
+      --out "$miniwam_out_root/smoke" --resume ;;
+  one-step) run_stage one_step ;;
+  two-step) run_stage two_step ;;
+  three-step) run_stage three_step ;;
+  all)
+    run_stage one_step
+    run_stage two_step
+    run_stage three_step ;;
+  *) echo 'Usage: bash scripts/train_server.sh [smoke|one-step|two-step|three-step|all]' >&2; exit 1 ;;
+esac

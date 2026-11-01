@@ -13,7 +13,7 @@ import shutil
 
 
 EXCLUDE_DIRS = {".git", ".git-history", ".cache", ".python", "__pycache__", ".pytest_cache",
-                ".ipynb_checkpoints", "tmp", "runs", "git-export", "build", "dist"}
+                ".ipynb_checkpoints", "tmp", "runs", "logs", "data", "git-export", "build", "dist"}
 EXCLUDE_SUFFIXES = {".pyc", ".pt", ".pth", ".safetensors", ".msgpack", ".zip", ".log"}
 
 
@@ -32,6 +32,7 @@ def inventory(source):
                 else:
                     stack.append(path)
             elif (path.name == ".DS_Store" or path.name == ".env" or path.name.startswith(".env.")
+                  or path.name.startswith("gangway-") or path.suffix == ".pem"
                   or path.suffix in EXCLUDE_SUFFIXES):
                 omitted.append({"path": relative, "reason": "local file, credentials, checkpoint or archive"})
             elif path.stat().st_size >= 95*1024**2:

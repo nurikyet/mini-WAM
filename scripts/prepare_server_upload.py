@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Copy the standalone mini-WAM project into a local repository/upload folder.
+"""Copy mini-WAM server sources into a local repository/upload folder.
 
-Copies only the five project folders and four root files. Existing Git metadata
+Copies code, configs, docs, vendor sources and requirements. Existing Git metadata
 and other destination files are preserved. No GitHub access, commits or pushes.
 """
 from __future__ import annotations
@@ -12,8 +12,8 @@ from pathlib import Path
 import shutil
 
 
-FOLDERS = ("miniwam", "configs", "scripts", "tests", "reports")
-FILES = ("README.md", "pyproject.toml", "requirements.txt", ".gitignore")
+FOLDERS = ("miniwam", "configs", "scripts", "tests", "reports", "docs", "vendor")
+FILES = ("README.md", "pyproject.toml", "requirements.txt", "requirements-server.txt", ".gitignore")
 SKIP = {".git", "__pycache__", ".pytest_cache", ".ipynb_checkpoints", ".cache", ".DS_Store"}
 
 
