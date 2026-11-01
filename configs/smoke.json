@@ -1,0 +1,8 @@
+{
+  "environment": {"depth": 1},
+  "ppo": {"updates": 50},
+  "collection": {"train_repeats": 8, "eval_repeats": 8},
+  "model": {"updates": 500, "eval_every": 50},
+  "horizons": [3],
+  "seeds": [3407]
+}

@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-01",
+  "source_sha256": "4fb8a1f855862c4eb3a33588ed0247291cd44ca08a01d7e40c1b8f2d940bc03d",
+  "unit_tests": {
+    "command": "python -m unittest discover -s tests -v",
+    "passed": 13,
+    "failed": 0
+  },
+  "checks": [
+    "compileall: miniwam/scripts/tests",
+    "bash -n scripts/train_server.sh",
+    "editable package wheel build and console entry point (existing pinned dependencies reused)",
+    "Git staging of temporary clean export: both upstream source files present, no mode-160000 gitlinks"
+  ],
+  "cuda_tested": false,
+  "server_accessed": false,
+  "notes": "CPU macOS verification; GPU commands must be checked on the target server.",
+  "final_smoke": {
+    "config": "configs/smoke.json",
+    "all_test_sr_100": true
+  },
+  "audit_after_io_optimization_matches_original": true
+}

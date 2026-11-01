@@ -1,0 +1,8 @@
+{
+  "environment": {"size": 5, "depth": 1, "tile_size": 6, "split_seed": 2026},
+  "ppo": {"updates": 150, "seed": 42},
+  "collection": {"train_repeats": 32, "eval_repeats": 8, "exploration": 0.25, "seed": 43},
+  "model": {"updates": 2000, "batch_size": 128, "width": 32, "eval_every": 50},
+  "horizons": [1, 2, 3],
+  "seeds": [3407]
+}

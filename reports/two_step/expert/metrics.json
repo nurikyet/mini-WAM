@@ -1,0 +1,23 @@
+[
+  {
+    "update": 5,
+    "transitions": 5120,
+    "loss": 0.05771750950952992,
+    "train_sr": 1.0,
+    "val_sr": 1.0
+  },
+  {
+    "update": 10,
+    "transitions": 10240,
+    "loss": 0.05571136821527034,
+    "train_sr": 1.0,
+    "val_sr": 1.0
+  },
+  {
+    "update": 15,
+    "transitions": 15360,
+    "loss": 0.004746339036501013,
+    "train_sr": 1.0,
+    "val_sr": 1.0
+  }
+]

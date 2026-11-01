@@ -1,0 +1,18 @@
+{
+  "config": {
+    "model": {
+      "mode": "joint",
+      "horizon": 2,
+      "width": 32,
+      "updates": 2000,
+      "batch_size": 128,
+      "lr": 0.003,
+      "image_weight": 1.0,
+      "eval_every": 50,
+      "patience": 3,
+      "seed": 3407
+    },
+    "dataset_manifest_sha256": "766b8235e1a51fbb44a45f7f5054b3284bb076f3f3b6966a1da98474530fb136"
+  },
+  "source_sha256": "ee0659737b281b0d7ac15267b3d3e373dc83c1b393e494629e811a063160481c"
+}

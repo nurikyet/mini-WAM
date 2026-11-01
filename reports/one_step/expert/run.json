@@ -1,0 +1,26 @@
+{
+  "config": {
+    "environment": {
+      "size": 5,
+      "depth": 1,
+      "tile_size": 6,
+      "split_seed": 2026
+    },
+    "ppo": {
+      "updates": 150,
+      "num_envs": 128,
+      "rollout_steps": 8,
+      "epochs": 4,
+      "minibatch_size": 256,
+      "lr": 0.001,
+      "gamma": 0.99,
+      "gae_lambda": 0.95,
+      "clip": 0.2,
+      "entropy_coef": 0.01,
+      "eval_every": 5,
+      "patience": 3,
+      "seed": 42
+    }
+  },
+  "source_sha256": "ee0659737b281b0d7ac15267b3d3e373dc83c1b393e494629e811a063160481c"
+}

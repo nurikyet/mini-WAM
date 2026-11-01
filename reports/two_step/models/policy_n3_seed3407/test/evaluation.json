@@ -1,0 +1,85 @@
+{
+  "mode": "policy",
+  "horizon": 3,
+  "checkpoint_sha256": "9473ac3ca87ce377c388fe8e42c9098721cf763f0e60dfd49ce7ba4927941bb6",
+  "selected_update": 150,
+  "validation_sr": 1.0,
+  "environment": {
+    "size": 5,
+    "depth": 2,
+    "tile_size": 6,
+    "split_seed": 2026
+  },
+  "closed_loop": {
+    "split": "test",
+    "success_rate": 1.0,
+    "successes": 24,
+    "episodes": 24,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {},
+    "failures": [],
+    "by_displacement": {
+      "(2, 0)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(0, -2)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(1, 1)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(-1, -1)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(1, -1)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(-2, 0)": {
+        "successes": 2,
+        "episodes": 2
+      },
+      "(-1, 1)": {
+        "successes": 2,
+        "episodes": 2
+      },
+      "(0, 2)": {
+        "successes": 1,
+        "episodes": 1
+      }
+    }
+  },
+  "offline": {
+    "windows": 384,
+    "loss": 0.06409987807273865,
+    "requested_horizon": 3,
+    "per_horizon": [
+      {
+        "step": 1,
+        "expert_labels": 225,
+        "image_targets": 0,
+        "action_accuracy": 0.9866666666666667
+      },
+      {
+        "step": 2,
+        "expert_labels": 149,
+        "image_targets": 0,
+        "action_accuracy": 0.9865771812080537
+      },
+      {
+        "step": 3,
+        "expert_labels": 0,
+        "image_targets": 0
+      }
+    ],
+    "action_accuracy": 0.9866310160427807,
+    "open_loop_action_accuracy": 0.9358288770053476
+  },
+  "diagnosis": [
+    "100% on this finite held-out bank, not a guarantee for larger boards/obstacles/new seeds."
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "mode": "policy",
+  "horizon": 1,
+  "checkpoint_sha256": "48ddd3bb9c519d545bdb89717a245cd800f1ff35b863d23d3eb1636ae1fd2756",
+  "selected_update": 150,
+  "validation_sr": 1.0,
+  "environment": {
+    "size": 5,
+    "depth": 1,
+    "tile_size": 6,
+    "split_seed": 2026
+  },
+  "closed_loop": {
+    "split": "test",
+    "success_rate": 1.0,
+    "successes": 16,
+    "episodes": 16,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {},
+    "failures": [],
+    "by_displacement": {
+      "(0, -1)": {
+        "successes": 5,
+        "episodes": 5
+      },
+      "(-1, 0)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(1, 0)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(0, 1)": {
+        "successes": 3,
+        "episodes": 3
+      }
+    }
+  },
+  "offline": {
+    "windows": 128,
+    "loss": 0.0021275512408465147,
+    "requested_horizon": 1,
+    "per_horizon": [
+      {
+        "step": 1,
+        "expert_labels": 49,
+        "image_targets": 0,
+        "action_accuracy": 1.0
+      }
+    ],
+    "action_accuracy": 1.0,
+    "open_loop_action_accuracy": 1.0
+  },
+  "diagnosis": [
+    "100% on this finite held-out bank, not a guarantee for larger boards/obstacles/new seeds."
+  ]
+}

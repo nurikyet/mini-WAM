@@ -1,0 +1,52 @@
+{
+  "updates": 800,
+  "session_seconds": 46.77876495802775,
+  "initial_validation": {
+    "windows": 368,
+    "loss": 2.7833410760630732,
+    "requested_horizon": 3,
+    "per_horizon": [
+      {
+        "step": 1,
+        "expert_labels": 217,
+        "image_targets": 368,
+        "action_accuracy": 0.24423963133640553,
+        "foreground_cell_accuracy": 0.1017293997965412
+      },
+      {
+        "step": 2,
+        "expert_labels": 144,
+        "image_targets": 184,
+        "action_accuracy": 0.2986111111111111,
+        "foreground_cell_accuracy": 0.23923444976076555
+      },
+      {
+        "step": 3,
+        "expert_labels": 0,
+        "image_targets": 0
+      }
+    ],
+    "action_accuracy": 0.2659279778393352,
+    "open_loop_action_accuracy": 0.2659279778393352,
+    "cell_accuracy": 0.014492753623188406,
+    "foreground_cell_accuracy": 0.14275517487508924,
+    "forecast_mse": 0.07873872176460597,
+    "repeat_context_mse": 0.025593755970830502,
+    "action_sensitivity_mae": 0.0023120482071586276
+  },
+  "runtime": {
+    "python": "3.11.17",
+    "torch": "2.7.1",
+    "numpy": "1.26.4",
+    "device": "cpu",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "gpu": null,
+    "peak_cuda_allocated_bytes": null,
+    "peak_cuda_reserved_bytes": null,
+    "source_sha256": "ee0659737b281b0d7ac15267b3d3e373dc83c1b393e494629e811a063160481c"
+  },
+  "parameters": 31112,
+  "selection": "validation only",
+  "effective_prediction_horizon": 2,
+  "requested_prediction_horizon": 3
+}

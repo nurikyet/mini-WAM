@@ -1,0 +1,42 @@
+{
+  "updates": 2000,
+  "session_seconds": 75.27269829111174,
+  "initial_validation": {
+    "windows": 120,
+    "loss": 1.4997667074203491,
+    "requested_horizon": 2,
+    "per_horizon": [
+      {
+        "step": 1,
+        "expert_labels": 0,
+        "image_targets": 120,
+        "foreground_cell_accuracy": 0.17391304347826086
+      },
+      {
+        "step": 2,
+        "expert_labels": 0,
+        "image_targets": 0
+      }
+    ],
+    "cell_accuracy": 0.016,
+    "foreground_cell_accuracy": 0.17391304347826086,
+    "forecast_mse": 0.08405789693196615,
+    "repeat_context_mse": 0.028119155883789063,
+    "action_sensitivity_mae": 0.0016590151786804199
+  },
+  "runtime": {
+    "python": "3.11.17",
+    "torch": "2.7.1",
+    "numpy": "1.26.4",
+    "device": "cpu",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "gpu": null,
+    "peak_cuda_allocated_bytes": null,
+    "peak_cuda_reserved_bytes": null,
+    "source_sha256": "ee0659737b281b0d7ac15267b3d3e373dc83c1b393e494629e811a063160481c"
+  },
+  "parameters": 29924,
+  "selection": "validation only",
+  "effective_prediction_horizon": 1,
+  "requested_prediction_horizon": 2
+}

@@ -1,0 +1,24 @@
+{
+  "sha256_verified": true,
+  "state_overlap_between_splits": 0,
+  "splits": {
+    "train": {
+      "episodes": 1568,
+      "unique_input_frames": 49,
+      "all_initial_actions_covered": true,
+      "alignment_replay_verified": true
+    },
+    "val": {
+      "episodes": 120,
+      "unique_input_frames": 15,
+      "all_initial_actions_covered": true,
+      "alignment_replay_verified": true
+    },
+    "test": {
+      "episodes": 128,
+      "unique_input_frames": 16,
+      "all_initial_actions_covered": true,
+      "alignment_replay_verified": true
+    }
+  }
+}

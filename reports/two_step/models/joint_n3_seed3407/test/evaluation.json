@@ -1,0 +1,92 @@
+{
+  "mode": "joint",
+  "horizon": 3,
+  "checkpoint_sha256": "4418369515013023609cb490e4dc521bfd3a1cf59abca737f74ed23cb540d63a",
+  "selected_update": 500,
+  "validation_sr": 1.0,
+  "environment": {
+    "size": 5,
+    "depth": 2,
+    "tile_size": 6,
+    "split_seed": 2026
+  },
+  "closed_loop": {
+    "split": "test",
+    "success_rate": 1.0,
+    "successes": 24,
+    "episodes": 24,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {},
+    "failures": [],
+    "by_displacement": {
+      "(2, 0)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(0, -2)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(1, 1)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(-1, -1)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(1, -1)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(-2, 0)": {
+        "successes": 2,
+        "episodes": 2
+      },
+      "(-1, 1)": {
+        "successes": 2,
+        "episodes": 2
+      },
+      "(0, 2)": {
+        "successes": 1,
+        "episodes": 1
+      }
+    }
+  },
+  "offline": {
+    "windows": 384,
+    "loss": 0.12337557474772136,
+    "requested_horizon": 3,
+    "per_horizon": [
+      {
+        "step": 1,
+        "expert_labels": 225,
+        "image_targets": 384,
+        "action_accuracy": 0.9866666666666667,
+        "foreground_cell_accuracy": 0.9921798631476051
+      },
+      {
+        "step": 2,
+        "expert_labels": 149,
+        "image_targets": 192,
+        "action_accuracy": 0.9731543624161074,
+        "foreground_cell_accuracy": 0.967816091954023
+      },
+      {
+        "step": 3,
+        "expert_labels": 0,
+        "image_targets": 0
+      }
+    ],
+    "action_accuracy": 0.9812834224598931,
+    "open_loop_action_accuracy": 0.9358288770053476,
+    "cell_accuracy": 0.9969444444444444,
+    "foreground_cell_accuracy": 0.9849108367626886,
+    "forecast_mse": 0.0008688945240444608,
+    "repeat_context_mse": 0.025629413392808702,
+    "action_sensitivity_mae": 0.03403139856126573
+  },
+  "diagnosis": [
+    "100% on this finite held-out bank, not a guarantee for larger boards/obstacles/new seeds."
+  ]
+}

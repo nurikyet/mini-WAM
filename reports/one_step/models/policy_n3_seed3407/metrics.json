@@ -1,0 +1,95 @@
+[
+  {
+    "update": 50,
+    "mean_loss": 0.6799517769459635,
+    "action_loss": 0.007523448672145605,
+    "val_sr": 1.0,
+    "offline_validation": {
+      "windows": 120,
+      "loss": 0.013999879360198975,
+      "requested_horizon": 3,
+      "per_horizon": [
+        {
+          "step": 1,
+          "expert_labels": 54,
+          "image_targets": 0,
+          "action_accuracy": 1.0
+        },
+        {
+          "step": 2,
+          "expert_labels": 0,
+          "image_targets": 0
+        },
+        {
+          "step": 3,
+          "expert_labels": 0,
+          "image_targets": 0
+        }
+      ],
+      "action_accuracy": 1.0,
+      "open_loop_action_accuracy": 1.0
+    }
+  },
+  {
+    "update": 100,
+    "mean_loss": 0.0012690966681111603,
+    "action_loss": 0.00045250708353705704,
+    "val_sr": 1.0,
+    "offline_validation": {
+      "windows": 120,
+      "loss": 0.0017477282090112567,
+      "requested_horizon": 3,
+      "per_horizon": [
+        {
+          "step": 1,
+          "expert_labels": 54,
+          "image_targets": 0,
+          "action_accuracy": 1.0
+        },
+        {
+          "step": 2,
+          "expert_labels": 0,
+          "image_targets": 0
+        },
+        {
+          "step": 3,
+          "expert_labels": 0,
+          "image_targets": 0
+        }
+      ],
+      "action_accuracy": 1.0,
+      "open_loop_action_accuracy": 1.0
+    }
+  },
+  {
+    "update": 150,
+    "mean_loss": 0.0003601554536726326,
+    "action_loss": 0.0003275141352787614,
+    "val_sr": 1.0,
+    "offline_validation": {
+      "windows": 120,
+      "loss": 0.001335774315521121,
+      "requested_horizon": 3,
+      "per_horizon": [
+        {
+          "step": 1,
+          "expert_labels": 54,
+          "image_targets": 0,
+          "action_accuracy": 1.0
+        },
+        {
+          "step": 2,
+          "expert_labels": 0,
+          "image_targets": 0
+        },
+        {
+          "step": 3,
+          "expert_labels": 0,
+          "image_targets": 0
+        }
+      ],
+      "action_accuracy": 1.0,
+      "open_loop_action_accuracy": 1.0
+    }
+  }
+]

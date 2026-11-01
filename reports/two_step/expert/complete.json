@@ -1,0 +1,16 @@
+{
+  "updates": 15,
+  "session_seconds": 0.44288470782339573,
+  "runtime": {
+    "python": "3.11.17",
+    "torch": "2.7.1",
+    "numpy": "1.26.4",
+    "device": "cpu",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "gpu": null,
+    "peak_cuda_allocated_bytes": null,
+    "peak_cuda_reserved_bytes": null,
+    "source_sha256": "ee0659737b281b0d7ac15267b3d3e373dc83c1b393e494629e811a063160481c"
+  },
+  "selection": "train and validation only"
+}

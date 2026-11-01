@@ -1,0 +1,88 @@
+{
+  "train": {
+    "split": "train",
+    "success_rate": 1.0,
+    "successes": 77,
+    "episodes": 77,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {},
+    "failures": [],
+    "by_displacement": {
+      "(0, 2)": {
+        "successes": 11,
+        "episodes": 11
+      },
+      "(1, 1)": {
+        "successes": 10,
+        "episodes": 10
+      },
+      "(2, 0)": {
+        "successes": 8,
+        "episodes": 8
+      },
+      "(1, -1)": {
+        "successes": 9,
+        "episodes": 9
+      },
+      "(0, -2)": {
+        "successes": 8,
+        "episodes": 8
+      },
+      "(-1, 1)": {
+        "successes": 11,
+        "episodes": 11
+      },
+      "(-1, -1)": {
+        "successes": 10,
+        "episodes": 10
+      },
+      "(-2, 0)": {
+        "successes": 10,
+        "episodes": 10
+      }
+    }
+  },
+  "val": {
+    "split": "val",
+    "success_rate": 1.0,
+    "successes": 23,
+    "episodes": 23,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {},
+    "failures": [],
+    "by_displacement": {
+      "(0, 2)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(2, 0)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(1, 1)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(-1, 1)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(1, -1)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(-1, -1)": {
+        "successes": 2,
+        "episodes": 2
+      },
+      "(-2, 0)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(0, -2)": {
+        "successes": 3,
+        "episodes": 3
+      }
+    }
+  }
+}

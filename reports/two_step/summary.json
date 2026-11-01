@@ -1,0 +1,883 @@
+{
+  "environment": {
+    "size": 5,
+    "depth": 2,
+    "tile_size": 6,
+    "split_seed": 2026
+  },
+  "expert": {
+    "train": {
+      "split": "train",
+      "success_rate": 1.0,
+      "successes": 77,
+      "episodes": 77,
+      "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+      "failure_counts": {},
+      "failures": [],
+      "by_displacement": {
+        "(0, 2)": {
+          "successes": 11,
+          "episodes": 11
+        },
+        "(1, 1)": {
+          "successes": 10,
+          "episodes": 10
+        },
+        "(2, 0)": {
+          "successes": 8,
+          "episodes": 8
+        },
+        "(1, -1)": {
+          "successes": 9,
+          "episodes": 9
+        },
+        "(0, -2)": {
+          "successes": 8,
+          "episodes": 8
+        },
+        "(-1, 1)": {
+          "successes": 11,
+          "episodes": 11
+        },
+        "(-1, -1)": {
+          "successes": 10,
+          "episodes": 10
+        },
+        "(-2, 0)": {
+          "successes": 10,
+          "episodes": 10
+        }
+      }
+    },
+    "val": {
+      "split": "val",
+      "success_rate": 1.0,
+      "successes": 23,
+      "episodes": 23,
+      "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+      "failure_counts": {},
+      "failures": [],
+      "by_displacement": {
+        "(0, 2)": {
+          "successes": 3,
+          "episodes": 3
+        },
+        "(2, 0)": {
+          "successes": 3,
+          "episodes": 3
+        },
+        "(1, 1)": {
+          "successes": 3,
+          "episodes": 3
+        },
+        "(-1, 1)": {
+          "successes": 3,
+          "episodes": 3
+        },
+        "(1, -1)": {
+          "successes": 3,
+          "episodes": 3
+        },
+        "(-1, -1)": {
+          "successes": 2,
+          "episodes": 2
+        },
+        "(-2, 0)": {
+          "successes": 3,
+          "episodes": 3
+        },
+        "(0, -2)": {
+          "successes": 3,
+          "episodes": 3
+        }
+      }
+    },
+    "test": {
+      "split": "test",
+      "success_rate": 1.0,
+      "successes": 24,
+      "episodes": 24,
+      "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+      "failure_counts": {},
+      "failures": [],
+      "by_displacement": {
+        "(2, 0)": {
+          "successes": 4,
+          "episodes": 4
+        },
+        "(0, -2)": {
+          "successes": 4,
+          "episodes": 4
+        },
+        "(1, 1)": {
+          "successes": 3,
+          "episodes": 3
+        },
+        "(-1, -1)": {
+          "successes": 4,
+          "episodes": 4
+        },
+        "(1, -1)": {
+          "successes": 4,
+          "episodes": 4
+        },
+        "(-2, 0)": {
+          "successes": 2,
+          "episodes": 2
+        },
+        "(-1, 1)": {
+          "successes": 2,
+          "episodes": 2
+        },
+        "(0, 2)": {
+          "successes": 1,
+          "episodes": 1
+        }
+      }
+    }
+  },
+  "random": {
+    "split": "test",
+    "success_rate": 0.041666666666666664,
+    "successes": 1,
+    "episodes": 24,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {
+      "boundary_collision": 6,
+      "wrong_direction": 17
+    },
+    "failures": [
+      {
+        "task": "0,1->2,1",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          },
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "0,2->0,0",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "left",
+            "distance_before": 3,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "1,0->2,1",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "left",
+            "distance_before": 1,
+            "distance_after": 1,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "1,0->3,0",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 3,
+            "distance_after": 3,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "1,1->0,0",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "right",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "1,1->3,1",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 3,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "1,2->2,1",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 3,
+            "distance_after": 4,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "2,0->0,0",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "2,0->3,1",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "right",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "2,1->3,0",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "left",
+            "distance_before": 3,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "2,2->3,1",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 3,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "2,3->2,1",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "2,3->4,3",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "left",
+            "distance_before": 3,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "3,0->2,1",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          },
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "3,2->2,1",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 3,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "3,2->3,0",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 3,
+            "distance_after": 4,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "3,2->4,3",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "left",
+            "distance_before": 3,
+            "distance_after": 4,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "3,3->3,1",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "3,4->4,3",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "4,0->3,1",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          },
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "4,1->3,0",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          },
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "4,1->4,3",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "4,2->3,1",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      }
+    ],
+    "by_displacement": {
+      "(2, 0)": {
+        "successes": 0,
+        "episodes": 4
+      },
+      "(0, -2)": {
+        "successes": 0,
+        "episodes": 4
+      },
+      "(1, 1)": {
+        "successes": 0,
+        "episodes": 3
+      },
+      "(-1, -1)": {
+        "successes": 0,
+        "episodes": 4
+      },
+      "(1, -1)": {
+        "successes": 0,
+        "episodes": 4
+      },
+      "(-2, 0)": {
+        "successes": 1,
+        "episodes": 2
+      },
+      "(-1, 1)": {
+        "successes": 0,
+        "episodes": 2
+      },
+      "(0, 2)": {
+        "successes": 0,
+        "episodes": 1
+      }
+    }
+  },
+  "models": [
+    {
+      "mode": "policy",
+      "horizon": 3,
+      "checkpoint_sha256": "9473ac3ca87ce377c388fe8e42c9098721cf763f0e60dfd49ce7ba4927941bb6",
+      "selected_update": 150,
+      "validation_sr": 1.0,
+      "environment": {
+        "size": 5,
+        "depth": 2,
+        "tile_size": 6,
+        "split_seed": 2026
+      },
+      "closed_loop": {
+        "split": "test",
+        "success_rate": 1.0,
+        "successes": 24,
+        "episodes": 24,
+        "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+        "failure_counts": {},
+        "failures": [],
+        "by_displacement": {
+          "(2, 0)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(0, -2)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(1, 1)": {
+            "successes": 3,
+            "episodes": 3
+          },
+          "(-1, -1)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(1, -1)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(-2, 0)": {
+            "successes": 2,
+            "episodes": 2
+          },
+          "(-1, 1)": {
+            "successes": 2,
+            "episodes": 2
+          },
+          "(0, 2)": {
+            "successes": 1,
+            "episodes": 1
+          }
+        }
+      },
+      "offline": {
+        "windows": 384,
+        "loss": 0.06409987807273865,
+        "requested_horizon": 3,
+        "per_horizon": [
+          {
+            "step": 1,
+            "expert_labels": 225,
+            "image_targets": 0,
+            "action_accuracy": 0.9866666666666667
+          },
+          {
+            "step": 2,
+            "expert_labels": 149,
+            "image_targets": 0,
+            "action_accuracy": 0.9865771812080537
+          },
+          {
+            "step": 3,
+            "expert_labels": 0,
+            "image_targets": 0
+          }
+        ],
+        "action_accuracy": 0.9866310160427807,
+        "open_loop_action_accuracy": 0.9358288770053476
+      },
+      "diagnosis": [
+        "100% on this finite held-out bank, not a guarantee for larger boards/obstacles/new seeds."
+      ],
+      "seed": 3407
+    },
+    {
+      "mode": "video",
+      "horizon": 3,
+      "checkpoint_sha256": "18d8986b281ac14fc7bc7898bcd199abf41f1ef51e8487bd82c01038ee0d28fd",
+      "selected_update": 350,
+      "validation_sr": 1.0,
+      "environment": {
+        "size": 5,
+        "depth": 2,
+        "tile_size": 6,
+        "split_seed": 2026
+      },
+      "closed_loop": {
+        "split": "test",
+        "success_rate": 1.0,
+        "successes": 24,
+        "episodes": 24,
+        "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+        "failure_counts": {},
+        "failures": [],
+        "by_displacement": {
+          "(2, 0)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(0, -2)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(1, 1)": {
+            "successes": 3,
+            "episodes": 3
+          },
+          "(-1, -1)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(1, -1)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(-2, 0)": {
+            "successes": 2,
+            "episodes": 2
+          },
+          "(-1, 1)": {
+            "successes": 2,
+            "episodes": 2
+          },
+          "(0, 2)": {
+            "successes": 1,
+            "episodes": 1
+          }
+        }
+      },
+      "offline": {
+        "windows": 384,
+        "loss": 0.023090224092205364,
+        "requested_horizon": 3,
+        "per_horizon": [
+          {
+            "step": 1,
+            "expert_labels": 0,
+            "image_targets": 384,
+            "foreground_cell_accuracy": 0.9970674486803519
+          },
+          {
+            "step": 2,
+            "expert_labels": 0,
+            "image_targets": 192,
+            "foreground_cell_accuracy": 0.9310344827586207
+          },
+          {
+            "step": 3,
+            "expert_labels": 0,
+            "image_targets": 0
+          }
+        ],
+        "cell_accuracy": 0.9970138888888889,
+        "foreground_cell_accuracy": 0.977366255144033,
+        "forecast_mse": 0.00087335381242964,
+        "repeat_context_mse": 0.025629413392808702,
+        "action_sensitivity_mae": 0.03499722480773926
+      },
+      "diagnosis": [
+        "100% on this finite held-out bank, not a guarantee for larger boards/obstacles/new seeds."
+      ],
+      "seed": 3407
+    },
+    {
+      "mode": "joint",
+      "horizon": 3,
+      "checkpoint_sha256": "4418369515013023609cb490e4dc521bfd3a1cf59abca737f74ed23cb540d63a",
+      "selected_update": 500,
+      "validation_sr": 1.0,
+      "environment": {
+        "size": 5,
+        "depth": 2,
+        "tile_size": 6,
+        "split_seed": 2026
+      },
+      "closed_loop": {
+        "split": "test",
+        "success_rate": 1.0,
+        "successes": 24,
+        "episodes": 24,
+        "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+        "failure_counts": {},
+        "failures": [],
+        "by_displacement": {
+          "(2, 0)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(0, -2)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(1, 1)": {
+            "successes": 3,
+            "episodes": 3
+          },
+          "(-1, -1)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(1, -1)": {
+            "successes": 4,
+            "episodes": 4
+          },
+          "(-2, 0)": {
+            "successes": 2,
+            "episodes": 2
+          },
+          "(-1, 1)": {
+            "successes": 2,
+            "episodes": 2
+          },
+          "(0, 2)": {
+            "successes": 1,
+            "episodes": 1
+          }
+        }
+      },
+      "offline": {
+        "windows": 384,
+        "loss": 0.12337557474772136,
+        "requested_horizon": 3,
+        "per_horizon": [
+          {
+            "step": 1,
+            "expert_labels": 225,
+            "image_targets": 384,
+            "action_accuracy": 0.9866666666666667,
+            "foreground_cell_accuracy": 0.9921798631476051
+          },
+          {
+            "step": 2,
+            "expert_labels": 149,
+            "image_targets": 192,
+            "action_accuracy": 0.9731543624161074,
+            "foreground_cell_accuracy": 0.967816091954023
+          },
+          {
+            "step": 3,
+            "expert_labels": 0,
+            "image_targets": 0
+          }
+        ],
+        "action_accuracy": 0.9812834224598931,
+        "open_loop_action_accuracy": 0.9358288770053476,
+        "cell_accuracy": 0.9969444444444444,
+        "foreground_cell_accuracy": 0.9849108367626886,
+        "forecast_mse": 0.0008688945240444608,
+        "repeat_context_mse": 0.025629413392808702,
+        "action_sensitivity_mae": 0.03403139856126573
+      },
+      "diagnosis": [
+        "100% on this finite held-out bank, not a guarantee for larger boards/obstacles/new seeds."
+      ],
+      "seed": 3407
+    }
+  ],
+  "all_test_sr_100": true,
+  "runtime": {
+    "python": "3.11.17",
+    "torch": "2.7.1",
+    "numpy": "1.26.4",
+    "device": "cpu",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "gpu": null,
+    "peak_cuda_allocated_bytes": null,
+    "peak_cuda_reserved_bytes": null,
+    "source_sha256": "ee0659737b281b0d7ac15267b3d3e373dc83c1b393e494629e811a063160481c"
+  },
+  "interpretation": "Exhaustive held-out goal positions on this finite board, not general 100% success."
+}

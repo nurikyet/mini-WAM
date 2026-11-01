@@ -1,0 +1,18 @@
+{
+  "config": {
+    "environment": {
+      "size": 5,
+      "depth": 2,
+      "tile_size": 6,
+      "split_seed": 2026
+    },
+    "collection": {
+      "train_repeats": 8,
+      "eval_repeats": 8,
+      "exploration": 0.25,
+      "seed": 43
+    },
+    "expert_sha256": "7867e181059c51961d63f7e93a8e8f726a291e7629ac92fad26be8f6b8bd26aa"
+  },
+  "source_sha256": "ee0659737b281b0d7ac15267b3d3e373dc83c1b393e494629e811a063160481c"
+}

@@ -1,0 +1,63 @@
+{
+  "mode": "policy",
+  "horizon": 2,
+  "checkpoint_sha256": "7e8b90fb2fe6c45d855f51d5dd2a73cbaf452470e61a74a80fcc514e375dec69",
+  "selected_update": 150,
+  "validation_sr": 1.0,
+  "environment": {
+    "size": 5,
+    "depth": 1,
+    "tile_size": 6,
+    "split_seed": 2026
+  },
+  "closed_loop": {
+    "split": "test",
+    "success_rate": 1.0,
+    "successes": 16,
+    "episodes": 16,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {},
+    "failures": [],
+    "by_displacement": {
+      "(0, -1)": {
+        "successes": 5,
+        "episodes": 5
+      },
+      "(-1, 0)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(1, 0)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(0, 1)": {
+        "successes": 3,
+        "episodes": 3
+      }
+    }
+  },
+  "offline": {
+    "windows": 128,
+    "loss": 0.0021275512408465147,
+    "requested_horizon": 2,
+    "per_horizon": [
+      {
+        "step": 1,
+        "expert_labels": 49,
+        "image_targets": 0,
+        "action_accuracy": 1.0
+      },
+      {
+        "step": 2,
+        "expert_labels": 0,
+        "image_targets": 0
+      }
+    ],
+    "action_accuracy": 1.0,
+    "open_loop_action_accuracy": 1.0
+  },
+  "diagnosis": [
+    "100% on this finite held-out bank, not a guarantee for larger boards/obstacles/new seeds."
+  ]
+}

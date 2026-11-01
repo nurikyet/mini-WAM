@@ -1,0 +1,88 @@
+{
+  "mode": "video",
+  "horizon": 3,
+  "checkpoint_sha256": "18d8986b281ac14fc7bc7898bcd199abf41f1ef51e8487bd82c01038ee0d28fd",
+  "selected_update": 350,
+  "validation_sr": 1.0,
+  "environment": {
+    "size": 5,
+    "depth": 2,
+    "tile_size": 6,
+    "split_seed": 2026
+  },
+  "closed_loop": {
+    "split": "test",
+    "success_rate": 1.0,
+    "successes": 24,
+    "episodes": 24,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {},
+    "failures": [],
+    "by_displacement": {
+      "(2, 0)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(0, -2)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(1, 1)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(-1, -1)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(1, -1)": {
+        "successes": 4,
+        "episodes": 4
+      },
+      "(-2, 0)": {
+        "successes": 2,
+        "episodes": 2
+      },
+      "(-1, 1)": {
+        "successes": 2,
+        "episodes": 2
+      },
+      "(0, 2)": {
+        "successes": 1,
+        "episodes": 1
+      }
+    }
+  },
+  "offline": {
+    "windows": 384,
+    "loss": 0.023090224092205364,
+    "requested_horizon": 3,
+    "per_horizon": [
+      {
+        "step": 1,
+        "expert_labels": 0,
+        "image_targets": 384,
+        "foreground_cell_accuracy": 0.9970674486803519
+      },
+      {
+        "step": 2,
+        "expert_labels": 0,
+        "image_targets": 192,
+        "foreground_cell_accuracy": 0.9310344827586207
+      },
+      {
+        "step": 3,
+        "expert_labels": 0,
+        "image_targets": 0
+      }
+    ],
+    "cell_accuracy": 0.9970138888888889,
+    "foreground_cell_accuracy": 0.977366255144033,
+    "forecast_mse": 0.00087335381242964,
+    "repeat_context_mse": 0.025629413392808702,
+    "action_sensitivity_mae": 0.03499722480773926
+  },
+  "diagnosis": [
+    "100% on this finite held-out bank, not a guarantee for larger boards/obstacles/new seeds."
+  ]
+}

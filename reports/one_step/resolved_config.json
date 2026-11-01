@@ -1,0 +1,49 @@
+{
+  "environment": {
+    "size": 5,
+    "depth": 1,
+    "tile_size": 6,
+    "split_seed": 2026
+  },
+  "ppo": {
+    "updates": 150,
+    "num_envs": 128,
+    "rollout_steps": 8,
+    "epochs": 4,
+    "minibatch_size": 256,
+    "lr": 0.001,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip": 0.2,
+    "entropy_coef": 0.01,
+    "eval_every": 5,
+    "patience": 3,
+    "seed": 42
+  },
+  "collection": {
+    "train_repeats": 32,
+    "eval_repeats": 8,
+    "exploration": 0.25,
+    "seed": 43
+  },
+  "model": {
+    "mode": "joint",
+    "horizon": 3,
+    "width": 32,
+    "updates": 2000,
+    "batch_size": 128,
+    "lr": 0.003,
+    "image_weight": 1.0,
+    "eval_every": 50,
+    "patience": 3,
+    "seed": 3407
+  },
+  "horizons": [
+    1,
+    2,
+    3
+  ],
+  "seeds": [
+    3407
+  ]
+}

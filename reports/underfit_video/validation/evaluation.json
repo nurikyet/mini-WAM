@@ -1,0 +1,416 @@
+{
+  "mode": "video",
+  "horizon": 3,
+  "checkpoint_sha256": "668a0f3f3b6ac48fd11dfa41d44c146a2770d928fe925b0789bfa1393cbddd68",
+  "selected_update": 50,
+  "validation_sr": 0.21739130434782608,
+  "environment": {
+    "size": 5,
+    "depth": 2,
+    "tile_size": 6,
+    "split_seed": 2026
+  },
+  "closed_loop": {
+    "split": "val",
+    "success_rate": 0.21739130434782608,
+    "successes": 5,
+    "episodes": 23,
+    "protocol": "exhaustive finite bank, argmax/MPC, reobserve after each action",
+    "failure_counts": {
+      "boundary_collision": 11,
+      "wrong_direction": 7
+    },
+    "failures": [
+      {
+        "task": "0,1->0,3",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          },
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "0,3->1,4",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "right",
+            "distance_before": 1,
+            "distance_after": 1,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "1,1->2,2",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "1,2->0,3",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 1,
+            "distance_after": 1,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "1,3->2,2",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "1,4->0,3",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 1,
+            "distance_after": 1,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "2,0->2,2",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 3,
+            "distance_after": 4,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "2,3->1,4",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "right",
+            "distance_before": 1,
+            "distance_after": 1,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "2,4->2,2",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "left",
+            "distance_before": 3,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "3,0->4,1",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 1,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "3,1->2,2",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "up",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "3,1->4,0",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 1,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "3,2->4,1",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 1,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "3,3->2,2",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 1,
+            "blocked": false
+          },
+          {
+            "action": "down",
+            "distance_before": 1,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "3,4->1,4",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          },
+          {
+            "action": "right",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "4,2->2,2",
+        "reason": "wrong_direction",
+        "trace": [
+          {
+            "action": "left",
+            "distance_before": 2,
+            "distance_after": 3,
+            "blocked": false
+          },
+          {
+            "action": "up",
+            "distance_before": 3,
+            "distance_after": 2,
+            "blocked": false
+          }
+        ]
+      },
+      {
+        "task": "4,2->4,0",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          },
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          }
+        ]
+      },
+      {
+        "task": "4,3->4,1",
+        "reason": "boundary_collision",
+        "trace": [
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          },
+          {
+            "action": "down",
+            "distance_before": 2,
+            "distance_after": 2,
+            "blocked": true
+          }
+        ]
+      }
+    ],
+    "by_displacement": {
+      "(0, 2)": {
+        "successes": 1,
+        "episodes": 3
+      },
+      "(2, 0)": {
+        "successes": 3,
+        "episodes": 3
+      },
+      "(1, 1)": {
+        "successes": 0,
+        "episodes": 3
+      },
+      "(-1, 1)": {
+        "successes": 0,
+        "episodes": 3
+      },
+      "(1, -1)": {
+        "successes": 0,
+        "episodes": 3
+      },
+      "(-1, -1)": {
+        "successes": 0,
+        "episodes": 2
+      },
+      "(-2, 0)": {
+        "successes": 1,
+        "episodes": 3
+      },
+      "(0, -2)": {
+        "successes": 0,
+        "episodes": 3
+      }
+    }
+  },
+  "offline": {
+    "windows": 368,
+    "loss": 0.43763751698576886,
+    "requested_horizon": 3,
+    "per_horizon": [
+      {
+        "step": 1,
+        "expert_labels": 0,
+        "image_targets": 368,
+        "foreground_cell_accuracy": 0.595116988809766
+      },
+      {
+        "step": 2,
+        "expert_labels": 0,
+        "image_targets": 184,
+        "foreground_cell_accuracy": 0.4784688995215311
+      },
+      {
+        "step": 3,
+        "expert_labels": 0,
+        "image_targets": 0
+      }
+    ],
+    "cell_accuracy": 0.9553623188405798,
+    "foreground_cell_accuracy": 0.5603140613847252,
+    "forecast_mse": 0.014471483921659166,
+    "repeat_context_mse": 0.025593755970830502,
+    "action_sensitivity_mae": 0.006926072023916935
+  },
+  "diagnosis": [
+    "Inspect model/planner errors separately: planner scores learned frames using visible goal distance."
+  ]
+}

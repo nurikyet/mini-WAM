@@ -1,0 +1,18 @@
+{
+  "config": {
+    "model": {
+      "mode": "video",
+      "horizon": 3,
+      "width": 32,
+      "updates": 50,
+      "batch_size": 128,
+      "lr": 0.003,
+      "image_weight": 1.0,
+      "eval_every": 50,
+      "patience": 3,
+      "seed": 3407
+    },
+    "dataset_manifest_sha256": "529263c267d2830d70198d7c426cb20eca2a628207db8367f1a7aa952b0a339d"
+  },
+  "source_sha256": "ee0659737b281b0d7ac15267b3d3e373dc83c1b393e494629e811a063160481c"
+}
