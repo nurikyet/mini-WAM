@@ -110,8 +110,8 @@ esac
         contents = latest.read_text()
         self.assertIn("FAKE STDOUT",contents)
         self.assertIn("FAKE STDERR",contents)
-        self.assertIn("one_step.json",contents)
-        self.assertIn("three_step.json",contents)
+        self.assertIn("single_goal.json",contents)
+        self.assertNotIn("one_step.json",contents)
         self.assertIn("ГОТОВО: выполнение завершено; код=0",contents)
         first = latest.resolve()
         result = self.run_script()
@@ -156,6 +156,14 @@ esac
         contents = self.latest().read_text()
         self.assertIn("ОШИБКА: запуск завершился с кодом 7",contents)
         self.assertNotIn("pipeline",contents)
+
+    def test_diagnostic_command_uses_old_run_without_starting_a_training_pipeline(self):
+        result=self.run_script("diagnose-video")
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        contents=self.latest("diagnose-video").read_text()
+        self.assertIn("miniwam.server diagnose-video",contents)
+        self.assertIn("one_step_video_diagnostic",contents)
+        self.assertNotIn("miniwam.server pipeline",contents)
 
     def test_lock_rejection_does_not_replace_active_log_link(self):
         result = self.run_script()

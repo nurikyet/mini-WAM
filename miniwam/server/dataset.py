@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 
 from .common import completed, file_hash, finish, read_json, seed, stage, write_json
 from .expert import load_actor
 from .xland import ACTION_NAMES, features, load_bank, render_ts, simulator, single_ts
 from .progress import Progress, log
+from .protocol import episode_limit, renderer_version
 import imageio.v3 as iio
 import jax
 import numpy as np
@@ -21,12 +23,14 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
     if completed(out):
         log("ПРОПУСК: датасет уже собран и проверен", path=out)
         return out
-    depth = read_json(bank_dir / "manifest.json")["config"]["depth"]
+    bank_config = read_json(bank_dir / "manifest.json")["config"]
+    depth, renderer = episode_limit(bank_config), renderer_version(bank_config)
     rng = seed(config["seed"])
     actor = load_actor(expert_path, device)
     env, params = simulator(depth)
     step = jax.jit(env.step)
-    manifest = {"schema": 2, "bank_manifest_sha256": file_hash(bank_dir/"manifest.json"), "depth": depth,
+    manifest = {"schema": 3, "bank_manifest_sha256": file_hash(bank_dir/"manifest.json"), "depth": depth,
+        "episode_max_steps": depth, "renderer": renderer, "task_family": bank_config.get("family", "legacy_near_terminal"),
         "expert_sha256": file_hash(expert_path), "actions": ACTION_NAMES, "rgb_shape": [128, 128, 3],
         "alignment": "observations[t] -- actions[t] --> observations[t+1]",
         "padding": "terminal frame repeated, action=-1, valid=False, expert_mask=False",
@@ -59,7 +63,7 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
             for repeat in range(repeats):
                 i = task*repeats+repeat
                 ts = single_ts(bank, task)
-                arrays["observations"][i, 0] = render_ts(ts)
+                arrays["observations"][i, 0] = render_ts(ts, renderer)
                 arrays["agent_positions"][i, 0] = np.asarray(ts.state.agent.position)
                 arrays["agent_directions"][i, 0] = int(ts.state.agent.direction)
                 for t in range(depth):
@@ -73,7 +77,7 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
                     else:
                         action = policy_action
                     ts = step(params, ts, action)
-                    rgb = render_ts(ts)
+                    rgb = render_ts(ts, renderer)
                     arrays["observations"][i, t+1] = rgb
                     arrays["agent_positions"][i, t+1] = np.asarray(ts.state.agent.position)
                     arrays["agent_directions"][i, t+1] = int(ts.state.agent.direction)
@@ -100,6 +104,8 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
         files = {p.name: file_hash(p) for p in sorted(directory.iterdir()) if p.is_file()}
         expert_success = arrays["success"][arrays["pure_expert"]]
         manifest["splits"][split] = {"episodes": n, "transitions": int(arrays["valid"].sum()),
+            "unique_initial_scenes": len(bank["goal"]), "unique_goal_groups": len(np.unique(bank["group_id"])),
+            "diversity": diversity(arrays),
             "behavior_sr": float(arrays["success"].mean()), "pure_expert_sr": float(expert_success.mean()),
             "bytes": sum(p.stat().st_size for p in directory.iterdir()), "files_sha256": files}
         paths.extend(f"{split}/{name}" for name in files)
@@ -112,6 +118,33 @@ def collect(bank_dir, expert_path, config, out, device, resume=False):
     return out
 
 
+def diversity(arrays):
+    """Count observed RGB/action pairs, rather than treating repeats as new data."""
+    states, pairs = set(), set()
+    action_counts = np.zeros(6, np.int64)
+    lengths = np.asarray(arrays["lengths"])
+    depth = arrays["actions"].shape[1]
+    expert_windows = np.zeros(depth,np.int64)
+    run = np.zeros(len(lengths),np.int32)
+    for t in reversed(range(depth)):
+        run = np.where(arrays["expert_mask"][:,t] & arrays["valid"][:,t],run+1,0)
+        expert_windows += (run[:,None] >= np.arange(1,depth+1)).sum(0)
+    moving = 0
+    for ep, t in np.argwhere(arrays["valid"]):
+        digest = hashlib.blake2b(arrays["observations"][ep,t].tobytes(), digest_size=16).digest()
+        action = int(arrays["actions"][ep,t])
+        states.add(digest)
+        pairs.add((digest, action))
+        action_counts[action] += 1
+        moving += int(np.any(arrays["agent_positions"][ep,t+1] != arrays["agent_positions"][ep,t]))
+    return {"unique_current_rgb": len(states), "unique_rgb_action_pairs": len(pairs),
+            "action_counts": action_counts.tolist(), "moving_transitions": moving,
+            "expert_transitions": int(arrays["expert_mask"].sum()),
+            "expert_complete_windows_by_horizon": {str(h): int(expert_windows[h-1]) for h in range(1,depth+1)},
+            "complete_windows_by_horizon": {str(h): int(np.maximum(lengths-h+1,0).sum())
+                                             for h in range(1, depth+1)}}
+
+
 def load_arrays(directory, split):
     return {p.stem: np.load(p, mmap_mode="r", allow_pickle=False) for p in (Path(directory)/split).glob("*.npy")}
 
@@ -119,6 +152,7 @@ def load_arrays(directory, split):
 def audit(directory, bank_dir):
     manifest = read_json(Path(directory)/"manifest.json")
     depth = manifest["depth"]
+    renderer = manifest.get("renderer", "legacy_v1")
     env, params = simulator(depth)
     step = jax.jit(env.step)
     result = {"transition_replay": True, "all_six_initial_actions": True, "splits": {}}
@@ -138,7 +172,7 @@ def audit(directory, bank_dir):
         for i in range(len(a)):
             task = int(arrays["task_ids"][i])
             ts = single_ts(bank, task)
-            np.testing.assert_array_equal(render_ts(ts), arrays["observations"][i, 0])
+            np.testing.assert_array_equal(render_ts(ts, renderer), arrays["observations"][i, 0])
             coverage.add((task, int(a[i, 0])))
             length = int(arrays["lengths"][i])
             if not valid[i, :length].all() or valid[i, length:].any():
@@ -147,7 +181,7 @@ def audit(directory, bank_dir):
                 if bool(ts.last()):
                     raise ValueError("Transition after terminal")
                 ts = step(params, ts, int(a[i, t]))
-                np.testing.assert_array_equal(render_ts(ts), arrays["observations"][i, t+1])
+                np.testing.assert_array_equal(render_ts(ts, renderer), arrays["observations"][i, t+1])
                 np.testing.assert_array_equal(np.asarray(ts.state.agent.position), arrays["agent_positions"][i, t+1])
                 if int(ts.state.agent.direction) != arrays["agent_directions"][i, t+1]:
                     raise ValueError("Diagnostic direction mismatch")

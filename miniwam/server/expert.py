@@ -9,6 +9,7 @@ from .xland import ACTION_NAMES, VectorEnv, features, load_bank, timesteps
 from miniwam.ppo import generalized_advantages
 from miniwam.utils import save_checkpoint
 from .progress import Progress, log
+from .protocol import episode_limit
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -75,7 +76,7 @@ def train_expert(bank_dir, config, out, device, resume=False):
         log("ПРОПУСК: PPO уже обучен", checkpoint=out/"best.pt")
         return out / "best.pt"
     rng = seed(config["seed"])
-    depth = read_json(bank_dir / "manifest.json")["config"]["depth"]
+    depth = episode_limit(read_json(bank_dir / "manifest.json")["config"])
     train, val = load_bank(bank_dir, "train"), load_bank(bank_dir, "val")
     env = VectorEnv(train, depth, config["num_envs"], rng)
     actor = StateActor().to(device)

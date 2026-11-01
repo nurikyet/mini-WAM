@@ -6,12 +6,31 @@ import shutil
 
 from .common import ROOT, completed, read_json, require_server, runtime, stage, verify_files, write_json
 from .progress import log, logged_stage
+from .protocol import check_window_coverage, episode_limit, renderer_version, storage_estimate
 
 
 def validate_config(c):
-    depth = c["bank"]["depth"]
-    if depth not in (1, 2, 3) or not c["horizons"] or min(c["horizons"]) < 1 or max(c["horizons"]) > depth:
-        raise ValueError("Use n<=depth, with real transitions; depth must be 1,2,3")
+    bank = c["bank"]
+    depth = episode_limit(bank)
+    navigation = bank.get("family") == "single_goal"
+    if navigation:
+        moves = bank.get("travel_moves", [])
+        if not moves or any(type(m) is not int or not 1 <= m <= 4 for m in moves) or depth < max(moves)+3:
+            raise ValueError("single_goal needs travel_moves in [1,4] and max_steps >= max(travel_moves)+3")
+    elif depth not in (1,2,3):
+        raise ValueError("Legacy curriculum depth must be 1,2,3")
+    if not c["horizons"] or any(type(n) is not int or not 1 <= n <= depth for n in c["horizons"]):
+        raise ValueError("Prediction horizons must use real primitive transitions within the episode budget")
+    if renderer_version(bank) not in ("legacy_v1", "clean_v2"):
+        raise ValueError("Invalid renderer version")
+    if set(bank["tasks"]) != {"train","val","test"} or min(bank["tasks"].values()) < 3:
+        raise ValueError("At least 3 tasks in each of train/val/test")
+    planner = c["model"].get("planner", {})
+    if set(planner)-{"population","rounds","elites","chunk_size"}:
+        raise ValueError("Unknown planner setting")
+    if (planner.get("population",64) < 6 or planner.get("rounds",3) < 1 or
+            not 1 <= planner.get("elites",8) <= planner.get("population",64) or planner.get("chunk_size",12) < 1):
+        raise ValueError("Invalid planner budget")
     for section, keys in (("ppo", ("updates", "num_envs", "rollout_steps", "epochs", "minibatch_size", "eval_every")),
                           ("model", ("updates", "batch_size", "eval_every", "checkpoint_every", "patience", "val_windows", "ddim_steps"))):
         if min(c[section][k] for k in keys) < 1:
@@ -20,6 +39,8 @@ def validate_config(c):
         raise ValueError("ddim_steps must be in [2,1000]")
     if min(c["collection"]["train_repeats"], c["collection"]["eval_repeats"]) < 7:
         raise ValueError("Need >=7 collection repeats")
+    if c["model"].get("motion_weight",0.) < 0:
+        raise ValueError("motion_weight must be nonnegative")
     if not 0 <= c["collection"]["epsilon"] <= 1 or not c["seeds"]:
         raise ValueError("Invalid collection epsilon or empty model seeds")
 
@@ -105,12 +126,16 @@ def summarize(out):
     perfect = len(entries) == expected and all(min(e["sr"].values()) == 1. for e in entries)
     perfect &= all(expert.get(s, {}).get("sr", 0.) == 1. for s in ("train","val","test"))
     summary = {"scope": "observable-goal controlled curriculum from trivial-1m, not the full hidden-goal benchmark",
-               "depth": config["bank"]["depth"], "all_sr_100": bool(perfect), "models": entries,
+               "episode_max_steps": episode_limit(config["bank"]),
+               "task_family": config["bank"].get("family", "legacy_near_terminal"),
+               "renderer": renderer_version(config["bank"]),
+               "all_sr_100": bool(perfect), "models": entries,
                "expert_sr": {s: expert.get(s,{}).get("sr") for s in ("train","val","test")}, "diagnostics": failures}
     write_json(out/"summary.json", summary)
     write_json(out/"diagnosis.json", failures)
     (out/"summary.md").write_text("\n".join([
-        "# Server experiment", "", summary["scope"], "", f"Exact primitive-action depth: {summary['depth']}",
+        "# Server experiment", "", summary["scope"], "", f"Task family: {summary['task_family']}",
+        f"Episode primitive-transition budget: {summary['episode_max_steps']}; prediction horizons: {config['horizons']}",
         f"PPO SR: {summary['expert_sr']}", f"All finite-bank SR=100%: {perfect}", "",
         "| Mode | n | Seed | Train SR | Val SR | Test SR | Test successes |",
         "|---|---:|---:|---:|---:|---:|---:|", *rows, "",
@@ -133,7 +158,10 @@ def pipeline(args, device):
     out = stage(args.out, {"pipeline": config}, args.resume)
     write_json(out/"resolved_config.json", config)
     write_json(out/"runtime.json", runtime())
-    with logged_stage("1/6: подготовка и аудит банков XLand", depth=config["bank"]["depth"]):
+    log("РАЗМЕР ДАННЫХ ДО ЗАПУСКА", **storage_estimate(config),
+        note="dense RGB + latents only; additionally allow for checkpoints, environments and caches; personal quota 100GB")
+    with logged_stage("1/6: подготовка и аудит банков XLand", max_steps=episode_limit(config["bank"]),
+                      family=config["bank"].get("family", "legacy_near_terminal"), horizons=config["horizons"]):
         banks = make_banks(config["bank"], ROOT/"data", out/"banks", args.resume)
     with logged_stage("2/6: обучение PPO по состояниям"):
         expert = train_expert(banks, config["ppo"], out/"expert", device, args.resume)
@@ -143,6 +171,10 @@ def pipeline(args, device):
     log("ПРОВЕРКА PPO ПРОЙДЕНА", train_val_sr="100%")
     with logged_stage("3/6: сбор и replay RGB-датасета"):
         dataset = collect(banks, expert, config["collection"], out/"dataset", device, args.resume)
+        data_manifest = read_json(dataset/"manifest.json")
+        check_window_coverage(data_manifest,config["horizons"])
+        for split, info in data_manifest["splits"].items():
+            log("ПОКРЫТИЕ ГОРИЗОНТОВ", split=split, **info["diversity"])
     with logged_stage("4/6: кодирование frozen VAE и проверка реконструкций"):
         cache = cache_latents(dataset, out/"latents", device, args.resume)
     with logged_stage("5/6: диагностический визуальный контроль"):
@@ -177,6 +209,20 @@ def main(argv=None):
     report.add_argument("--out", required=True)
     audit = sub.add_parser("audit")
     audit.add_argument("--out", required=True)
+    diagnose = sub.add_parser("diagnose-video", help="Frozen one-step video weights: all six futures and two task costs, validation only")
+    diagnose.add_argument("--run", required=True)
+    diagnose.add_argument("--out", required=True)
+    diagnose.add_argument("--limit",type=int)
+    diagnose.add_argument("--ddim-steps",type=int,default=20)
+    diagnose.add_argument("--resume",action="store_true")
+    ablation = sub.add_parser("train-model", help="Reuse collected data, optionally restrict training tasks for a learning curve")
+    ablation.add_argument("--run", required=True)
+    ablation.add_argument("--out", required=True)
+    ablation.add_argument("--mode", choices=("policy","video","joint"), required=True)
+    ablation.add_argument("--horizon", type=int, required=True)
+    ablation.add_argument("--train-tasks", type=int, required=True)
+    ablation.add_argument("--seed", type=int, default=3407)
+    ablation.add_argument("--resume", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "report":
         summarize(args.out)
@@ -195,6 +241,19 @@ def main(argv=None):
         from .xland import audit_banks
         print(audit_banks(Path(args.out)/"banks"))
         print(audit_dataset(Path(args.out)/"dataset", Path(args.out)/"banks"))
+    elif args.command == "diagnose-video":
+        from .diagnostics import diagnose_video
+        diagnose_video(args.run,args.out,device,args.limit,args.ddim_steps,args.resume)
+    elif args.command == "train-model":
+        from .training import train
+        run = Path(args.run)
+        config = read_json(run/"resolved_config.json")
+        validate_config(config)
+        if args.horizon not in config["horizons"]:
+            raise ValueError("Use a horizon declared in the source experiment")
+        model_config = {**config["model"], "train_task_limit": args.train_tasks}
+        train(run/"banks",run/"dataset",run/"latents",model_config,args.mode,args.horizon,
+              args.seed,args.out,device,args.resume)
     else:
         result = pipeline(args, device)
         return 2 if args.require_perfect and not result["all_sr_100"] else 0

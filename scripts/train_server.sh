@@ -4,11 +4,11 @@ cd "$(dirname "$0")/.."
 
 miniwam_python="${PYTHON:-.venv-server/bin/python}"
 miniwam_out_root="${OUT_ROOT:-runs/server}"
-miniwam_target="${1:-one-step}"
+miniwam_target="${1:-single-goal}"
 miniwam_log_dir="${LOG_DIR:-logs}"
 case "$miniwam_target" in
-  smoke|one-step|two-step|three-step|all) ;;
-  *) echo 'Usage: bash scripts/train_server.sh [smoke|one-step|two-step|three-step|all]' >&2; exit 1 ;;
+  single-goal|single-goal-smoke|smoke|one-step|two-step|three-step|all|diagnose-video) ;;
+  *) echo 'Usage: bash scripts/train_server.sh [single-goal|single-goal-smoke|all|smoke|one-step|two-step|three-step|diagnose-video]' >&2; exit 1 ;;
 esac
 mkdir -p "$miniwam_log_dir"
 miniwam_log_dir="$(cd "$miniwam_log_dir" && pwd -P)"
@@ -55,6 +55,11 @@ main() {
   "$miniwam_python" -m miniwam.server doctor
   log 'ГОТОВО: doctor'
   case "$miniwam_target" in
+    single-goal|all) run_stage single_goal ;;
+    single-goal-smoke)
+      log 'НАЧАЛО: single-goal smoke — одна цель, несколько перемещений, n=1/3/5; проверка кода, не сходимости WAM'
+      "$miniwam_python" -m miniwam.server pipeline --config configs/server/single_goal_smoke.json \
+        --out "$miniwam_out_root/single_goal_smoke" --resume ;;
     smoke)
       log 'НАЧАЛО: smoke — короткая проверка; SR 100% для WAM не требуется'
       "$miniwam_python" -m miniwam.server pipeline --config configs/server/smoke.json \
@@ -62,10 +67,10 @@ main() {
     one-step) run_stage one_step ;;
     two-step) run_stage two_step ;;
     three-step) run_stage three_step ;;
-    all)
-      run_stage one_step
-      run_stage two_step
-      run_stage three_step ;;
+    diagnose-video)
+      log 'НАЧАЛО: диагностика video на существующих весах; без обучения, только validation'
+      "$miniwam_python" -m miniwam.server diagnose-video \
+        --run "$miniwam_out_root/one_step" --out "$miniwam_out_root/one_step_video_diagnostic" --resume ;;
   esac
 }
 

@@ -36,7 +36,10 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
         log("ПРОПУСК: модель уже обучена", mode=mode, n=horizon, seed=model_seed, checkpoint=out/"best.pt")
         return out / "best.pt"
     rng = seed(model_seed)
-    train_windows, val_windows = [LatentWindows(dataset, cache, s, horizon) for s in ("train", "val")]
+    train_windows = LatentWindows(dataset, cache, "train", horizon, config.get("train_task_limit"))
+    val_windows = LatentWindows(dataset, cache, "val", horizon)
+    log("ОБУЧАЮЩИЕ ОКНА", mode=mode, n=horizon, windows=len(train_windows),
+        train_task_limit=config.get("train_task_limit", "all"), val_windows=len(val_windows))
     model = build(mode, horizon, config, device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
     def lr_scale(step):
@@ -62,7 +65,7 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
         model.train()
         batch = train_windows.batch(rng.integers(len(train_windows), size=config["batch_size"]), device)
         with autocast(device):
-            loss, losses = model.loss(*batch, image_weight=config["image_weight"])
+            loss, losses = model.loss(*batch, image_weight=config["image_weight"], motion_weight=config.get("motion_weight",0.))
         if not torch.isfinite(loss):
             raise FloatingPointError(f"Nonfinite {mode} loss at step {step}")
         optimizer.zero_grad(set_to_none=True)
@@ -81,7 +84,7 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
             with logged_stage("Валидация NanoWM: прогнозы и closed-loop SR", mode=mode, n=horizon, step=step):
                 validation = offline(model, val_windows, device, config["val_windows"], config["ddim_steps"],
                     vae, dataset, "val", out/"validation")
-                control = closed_loop(model, vae, bank_dir, "val", device, config["ddim_steps"])
+                control = closed_loop(model, vae, bank_dir, "val", device, config["ddim_steps"], planner=config.get("planner"))
             key = (control["sr"], -validation["loss"])
             dynamics_ok = mode == "policy" or validation["latent_mse"] < validation["persistence_latent_mse"]
             consecutive = consecutive+1 if control["sr"] == 1. and dynamics_ok else 0
@@ -109,12 +112,14 @@ def train(bank_dir, dataset, cache, config, mode, horizon, model_seed, out, devi
     model, saved = load_model(out/"best.pt", device)
     for split in ("train", "val", "test"):
         log("НАЧАЛО ИТОГОВОЙ ОЦЕНКИ", mode=mode, n=horizon, split=split, checkpoint_step=saved["step"])
-        control = closed_loop(model, vae, bank_dir, split, device, config["ddim_steps"], out=out/split)
-        metrics = offline(model, LatentWindows(dataset, cache, split, horizon), device, config["val_windows"],
+        control = closed_loop(model, vae, bank_dir, split, device, config["ddim_steps"], out=out/split, planner=config.get("planner"),
+                              task_ids=train_windows.task_ids if split == "train" else None)
+        evaluation_windows = train_windows if split == "train" else LatentWindows(dataset,cache,split,horizon)
+        metrics = offline(model, evaluation_windows, device, config["val_windows"],
                           config["ddim_steps"], vae, dataset, split, out/split)
         result = {"closed_loop": control, "offline": metrics, "selected_step": saved["step"]}
         if mode != "policy":
-            result["counterfactual"] = counterfactual_metrics(model, vae, LatentWindows(dataset,cache,split,horizon), device, config["ddim_steps"])
+            result["counterfactual"] = counterfactual_metrics(model, vae, evaluation_windows, device, config["ddim_steps"])
         if split == "test" and mode != "video":
             result["sampled_T1"] = closed_loop(model, vae, bank_dir, split, device, config["ddim_steps"], temperature=1.)
         write_json(out/split/"evaluation.json", result)

@@ -1,8 +1,7 @@
-"""Observable, finite near-goal curriculum using genuine XLand transitions.
+"""Controlled single-goal navigation and legacy near-terminal XLand fixtures.
 
-Rules/goals come from verified trivial-1m. Initial states are interventions, not
-native random resets: exactly 1/2/3 primitive actions from success. This is a
-debugging subset, never an estimate of SR on the complete hidden-goal benchmark.
+Both use genuine XLand transitions and verified trivial-1m goals. These are
+observable controlled initial states, not native hidden-goal benchmark resets.
 """
 from __future__ import annotations
 
@@ -15,6 +14,7 @@ import urllib.request
 from .common import (BENCHMARK_FILE, BENCHMARK_SHA256, HF_REVISION, completed,
                      file_hash, finish, read_json, save_npz, stage, write_json)
 from .progress import Progress, log
+from .protocol import episode_limit, renderer_version
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -95,18 +95,26 @@ def make_banks(config, data_dir, out, resume=False):
             raise ValueError(f"Insufficient goal groups for type {goal_type}")
         for split, part in zip(split_groups, (ids[2*holdout:], ids[:holdout], ids[holdout:2*holdout])):
             split_groups[split].extend(part.tolist())
-    depth = config["depth"]
-    if depth not in (1, 2, 3):
-        raise ValueError("Curriculum depth must be 1, 2, or 3")
+    depth = episode_limit(config)
+    navigation = config.get("family") == "single_goal"
+    renderer = renderer_version(config)
+    if not navigation and depth not in (1, 2, 3):
+        raise ValueError("Legacy curriculum depth must be 1, 2, or 3")
     manifest = {"benchmark": "trivial-1m", "filename": BENCHMARK_FILE, "hf_revision": HF_REVISION,
                 "benchmark_sha256": BENCHMARK_SHA256, "config": config,
-                "protocol": "controlled observable-goal near-terminal curriculum; not native benchmark resets",
+                "protocol": ("one semantic objective, multiple primitive transitions; clear axial approach; "
+                             "not native benchmark resets" if navigation else
+                             "legacy near-terminal curriculum; not native benchmark resets"),
+                "renderer": renderer, "episode_max_steps": depth,
                 "split": "canonical (goal,rules) groups; TileNear arguments sorted; 80/10/10 by goal type",
                 "source_rows": len(goals), "eligible_rows": len(rows), "unique_eligible_groups": len(unique),
                 "duplicate_fraction_in_eligible_rows": float(1-len(unique)/len(rows)),
                 "goal_group_overlap": 0, "actions": ACTION_NAMES, "splits": {}}
     frame_sets = set()
-    for split, groups in split_groups.items():
+    for split_index, (split, groups) in enumerate(split_groups.items()):
+        # Keep evaluation scenes fixed when changing the number of train tasks.
+        if navigation:
+            rng = np.random.default_rng(np.random.SeedSequence([config["split_seed"], split_index, 901]))
         n = config["tasks"][split]
         if n < 3:
             raise ValueError("At least three tasks per split")
@@ -126,9 +134,21 @@ def make_banks(config, data_dir, out, resume=False):
             # Keep the relevant object(s) and the historical distractor tiles.
             direction = int(rng.integers(4))
             offset = np.asarray(DIRECTIONS[direction])
-            pos = rng.integers(3, 6, size=2)
-            target = pos + offset*(1 if typ == 1 else 2)
-            facing = (direction + (0 if depth == 1 else int(rng.choice([1, 3])) if depth == 2 else 2)) % 4
+            if navigation:
+                # Balance distances within each goal type, rather than relying
+                # on chance to include long examples in small evaluation banks.
+                moves = int(config["travel_moves"][(len(records)//len(GOAL_TYPES))%len(config["travel_moves"])])
+                distance = moves+(2 if typ == 4 else 1)
+                positions = [np.array((y,x)) for y in range(1, BOARD-1) for x in range(1, BOARD-1)
+                             if np.all((np.array((y,x))+offset*distance >= 1) &
+                                       (np.array((y,x))+offset*distance < BOARD-1))]
+                pos = positions[int(rng.integers(len(positions)))]
+                target = pos+offset*distance
+                facing = int(rng.integers(4))
+            else:
+                pos = rng.integers(3, 6, size=2)
+                target = pos + offset*(1 if typ == 1 else 2)
+                facing = (direction + (0 if depth == 1 else int(rng.choice([1, 3])) if depth == 2 else 2)) % 4
             grid = np.zeros((BOARD, BOARD, 2), dtype=np.uint8)
             grid[:] = (Tiles.FLOOR, Colors.BLACK)
             grid[[0, -1], :] = (Tiles.WALL, Colors.GREY)
@@ -138,6 +158,8 @@ def make_banks(config, data_dir, out, resume=False):
             if typ == 4:
                 pocket = goal[1:3].copy()
             reserved = {tuple(pos), tuple(target), tuple(pos+offset)}
+            if navigation:
+                reserved |= {tuple(pos+offset*i) for i in range(distance+1)}
             free = [(y, x) for y in range(1, BOARD-1) for x in range(1, BOARD-1) if (y, x) not in reserved]
             rng.shuffle(free)
             for tile in data["init_tiles"][row]:
@@ -146,7 +168,11 @@ def make_banks(config, data_dir, out, resume=False):
                 grid[free.pop()] = tile
             record = {"grid": grid, "position": pos.astype(np.int32), "direction": np.int32(facing),
                       "pocket": pocket, "goal": goal, "rules": rules, "source_row": np.int64(row), "group_id": np.int64(group)}
-            fingerprint = render_record(record).tobytes()
+            if navigation:
+                turns = min((direction-facing)%4, (facing-direction)%4)
+                record.update(travel_moves=np.int32(moves), approach_direction=np.int32(direction),
+                              minimum_transitions=np.int32(moves+turns+(typ != 3)))
+            fingerprint = render_record(record, renderer).tobytes()
             if fingerprint in fingerprints:
                 continue
             if fingerprint in frame_sets:
@@ -159,7 +185,7 @@ def make_banks(config, data_dir, out, resume=False):
         manifest["splits"][split] = {"tasks": n, "goal_groups": len(groups), "group_ids": groups,
                                     "sha256": file_hash(out / f"{split}.npz")}
     write_json(out / "manifest.json", manifest)
-    # Genuine simulator verifies exact shortest depth, never supplies policy labels.
+    # Native simulator audits construction witnesses (legacy: exhaustive search).
     audit = audit_banks(out)
     write_json(out / "audit.json", audit)
     finish(out, ["manifest.json", "audit.json", "train.npz", "val.npz", "test.npz"])
@@ -196,29 +222,37 @@ def single_ts(bank, index):
     return jax.tree.map(lambda a: a[0], timesteps(bank, np.array([index])))
 
 
-def render_record(record):
-    return render_state(record["grid"], record["position"], int(record["direction"]), record["pocket"], record["goal"])
+def render_record(record, renderer="legacy_v1"):
+    return render_state(record["grid"], record["position"], int(record["direction"]), record["pocket"], record["goal"], renderer)
 
 
-def render_ts(ts):
+def render_ts(ts, renderer="legacy_v1"):
     s = ts.state
     return render_state(np.asarray(s.grid), np.asarray(s.agent.position), int(s.agent.direction),
-                        np.asarray(s.agent.pocket), np.asarray(s.goal_encoding))
+                        np.asarray(s.agent.pocket), np.asarray(s.goal_encoding), renderer)
 
 
-def render_state(grid, position, direction, pocket, goal):
+def display_tile(tile, direction=None, renderer="clean_v2"):
+    """EMPTY is a blank slot, not the upstream red debug exclamation mark."""
+    if renderer not in ("clean_v2", "legacy_v1"):
+        raise ValueError(f"Unknown renderer: {renderer}")
+    if renderer == "clean_v2" and int(tile[0]) == int(Tiles.EMPTY):
+        return np.full((TILE, TILE, 3), 24, np.uint8)
+    return render_tile(tuple(map(int, tile)), direction, False, TILE)
+
+
+def render_state(grid, position, direction, pocket, goal, renderer="legacy_v1"):
     canvas = np.full((128, 128, 3), 24, dtype=np.uint8)
     for y in range(BOARD):
         for x in range(BOARD):
-            tile = render_tile(tuple(map(int, grid[y, x])), direction if np.array_equal(position, (y, x)) else None,
-                               False, TILE)
+            tile = display_tile(grid[y, x], direction if np.array_equal(position, (y, x)) else None, renderer)
             canvas[y*TILE:(y+1)*TILE, BOARD_X+x*TILE:BOARD_X+(x+1)*TILE] = tile
     # Explicitly observable instruction: type, tile A, tile B, held object.
     # No success/reward/optimal action indicator is drawn.
     for i, typ in enumerate(GOAL_TYPES):
         canvas[114:122, 2+i*8:8+i*8] = 240 if int(goal[0]) == typ else 48
     for x, tile in ((32, goal[1:3]), (52, goal[3:5] if int(goal[0]) == 4 else (0, 0)), (96, pocket)):
-        canvas[112:124, x:x+12] = render_tile(tuple(map(int, tile)), None, False, 12)
+        canvas[112:124, x:x+12] = display_tile(tile, renderer=renderer)
     return canvas
 
 
@@ -260,7 +294,9 @@ class VectorEnv:
 
 def audit_banks(directory):
     manifest = read_json(Path(directory) / "manifest.json")
-    depth = manifest["config"]["depth"]
+    if manifest["config"].get("family") == "single_goal":
+        return audit_navigation(directory)
+    depth = episode_limit(manifest["config"])
     env, params = simulator(depth)
     @jax.jit
     def evaluate_plans(ts, plans):
@@ -294,3 +330,55 @@ def audit_banks(directory):
         result["splits"][split] = {"tasks": len(shortest), "solvable_fraction": 1.0,
                                     "exact_depth_verified": True, "unique_goal_groups": len(groups)}
     return result
+
+
+def reference_plan(record):
+    """Construction witness for auditing/previews only; never a PPO label."""
+    rotation = (int(record["approach_direction"])-int(record["direction"]))%4
+    turns = {0: [], 1: [1], 2: [1,1], 3: [2]}[rotation]
+    interaction = {1: [3], 3: [], 4: [4]}[int(record["goal"][0])]
+    return turns+[0]*int(record["travel_moves"])+interaction
+
+
+def audit_navigation(directory):
+    manifest = read_json(Path(directory)/"manifest.json")
+    budget = episode_limit(manifest["config"])
+    env, params = simulator(budget)
+    step = jax.jit(env.step)
+    report = {"episode_max_steps": budget, "semantic_objectives": 1,
+              "method": "native replay of construction witness; clear axial corridor checked; no exhaustive 6^budget search",
+              "split_goal_overlap": 0, "splits": {}}
+    seen = set()
+    for split in ("train", "val", "test"):
+        bank = load_bank(directory, split)
+        groups = set(map(int, bank["group_id"]))
+        if seen & groups:
+            raise ValueError("Goal group overlap")
+        seen |= groups
+        progress = Progress(f"Аудит single-goal {split}: раскладки", len(bank["goal"]))
+        for i in range(len(bank["goal"])):
+            record = {k: v[i] for k,v in bank.items()}
+            moves = int(record["travel_moves"])
+            delta = np.asarray(DIRECTIONS[int(record["approach_direction"])])
+            distance = moves+(2 if int(record["goal"][0]) == 4 else 1)
+            for t in range(1, distance):
+                if record["grid"][tuple(record["position"]+delta*t)][0] != Tiles.FLOOR:
+                    raise ValueError("Approach corridor obstructed")
+            plan = reference_plan(record)
+            if len(plan) != int(record["minimum_transitions"]) or len(plan) > budget:
+                raise ValueError("Witness outside episode budget")
+            ts = single_ts(bank, i)
+            origin = np.asarray(ts.state.agent.position).copy()
+            for t, action in enumerate(plan):
+                if bool(ts.last()):
+                    raise ValueError("Unexpected early termination in witness")
+                ts = step(params, ts, action)
+                if (float(ts.reward) > 0) != (t == len(plan)-1):
+                    raise ValueError("Goal reached at wrong witness transition")
+            if np.abs(np.asarray(ts.state.agent.position)-origin).sum() != moves:
+                raise ValueError("Travel distance does not match construction")
+            progress.update(i+1)
+        report["splits"][split] = {"tasks": len(bank["goal"]), "solvable_fraction": 1.,
+            "unique_goal_groups": len(groups), "travel_moves": sorted(set(map(int,bank["travel_moves"]))),
+            "witness_transition_range": [int(bank["minimum_transitions"].min()), int(bank["minimum_transitions"].max())]}
+    return report

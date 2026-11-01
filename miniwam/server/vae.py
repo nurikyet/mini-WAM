@@ -106,12 +106,22 @@ def cache_latents(dataset, out, device, resume=False, batch_size=32):
 
 class LatentWindows:
     """Only latents, actions, and masks; never imports a bank/state/SR label."""
-    def __init__(self, dataset, cache, split, horizon):
+    def __init__(self, dataset, cache, split, horizon, train_task_limit=None):
         self.dataset, self.split = Path(dataset), split
+        if train_task_limit is not None and (split != "train" or train_task_limit < 1):
+            raise ValueError("Task subsampling is allowed only for training")
         self.z = np.load(Path(cache)/f"{split}.npy", mmap_mode="r", allow_pickle=False)
         arrays = load_arrays(dataset, split)
         self.actions, self.valid, self.expert = (arrays[k] for k in ("actions", "valid", "expert_mask"))
         self.indices = np.argwhere(self.valid)
+        self.task_ids = None
+        if train_task_limit is not None:
+            tasks = np.unique(arrays["task_ids"])
+            if train_task_limit > len(tasks):
+                raise ValueError("train_task_limit exceeds the available training tasks")
+            tasks = np.random.default_rng(104729).permutation(tasks)[:train_task_limit]
+            self.indices = self.indices[np.isin(arrays["task_ids"][self.indices[:,0]], tasks)]
+            self.task_ids = np.sort(tasks).tolist()
         self.horizon = horizon
         if horizon < 1 or horizon > self.actions.shape[1]:
             raise ValueError("horizon must be between 1 and the real episode depth; no fake horizons")

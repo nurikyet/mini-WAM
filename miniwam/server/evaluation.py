@@ -9,8 +9,9 @@ from .dataset import load_arrays
 from .model import autocast
 from .vae import decode, encode
 from .progress import Progress
+from .protocol import episode_limit, renderer_version
 from .xland import (ACTION_NAMES, BOARD, BOARD_X, TILE, GOAL_TYPES, load_bank,
-                    render_tile, render_ts, simulator, single_ts)
+                    render_tile, display_tile, render_ts, simulator, single_ts)
 import imageio.v3 as iio
 import jax
 import numpy as np
@@ -52,6 +53,9 @@ def pocket_matches_goal(predicted, goal_template):
     # object that has a small absolute pixel MSE to the requested object.
     symbols = [(0,0)]+[(tile,color) for tile in (3,4,5,7,11,12) for color in (1,2,3,4,5,6,8,9,10,11)]
     templates = torch.from_numpy(np.stack([render_tile(s,None,False,12) for s in symbols]).copy()).to(predicted.device)
+    # Accept both versioned renderers, including a genuinely blank empty pocket.
+    blank = torch.from_numpy(display_tile((0,0)).copy()).to(predicted.device)[None]
+    templates = torch.cat([templates, blank], 0)
     templates = templates.permute(0,3,1,2).float()/255
     goal_id = (goal_template[:,None]-templates[None]).square().mean((-3,-2,-1)).argmin(-1)
     pocket = predicted[:,:,112:124,96:108]
@@ -90,48 +94,78 @@ def visual_score(predicted, current):
 
 
 @torch.no_grad()
-def plan(model, vae, rgb, remaining, device, ddim_steps, planning_seed=777, chunk_size=12):
+def plan(model, vae, rgb, remaining, device, ddim_steps, planning_seed=777, chunk_size=12,
+         population=64, rounds=3, elites=8):
     length = min(model.horizon, remaining)
-    candidates = torch.tensor(list(itertools.product(range(6), repeat=length)), device=device)
-    actions = F.pad(candidates, (0, model.horizon-length))
+    if min(length, population, rounds, elites, chunk_size) < 1 or elites > population or population < 6:
+        raise ValueError("Invalid bounded planner budget")
     context = encode(vae, np.asarray(rgb)[None], device)
     current = torch.as_tensor(np.array(rgb), device=device).permute(2, 0, 1).float()[None]/255
     gen = torch.Generator(device=device).manual_seed(planning_seed)
     common_noise = torch.randn((1, model.horizon, 4, 16, 16), generator=gen, device=device)
-    scores = []
-    for batch in actions.split(chunk_size):
-        count = len(batch)
-        valid = torch.arange(model.horizon, device=device)[None].expand(count, -1) < length
-        with autocast(device):
-            latent = model.sample(context.expand(count, -1, -1, -1), batch, ddim_steps,
-                                  common_noise.expand(count, -1, -1, -1, -1), valid)
-        # Decode in bounded chunks to avoid a VAE memory spike at 6^3 plans.
-        decoded = decode(vae, latent[:, :length])
-        score = torch.stack([visual_score(decoded[:, t], current.expand(count, -1, -1, -1)) for t in range(length)], 1)
-        weights = 0.9**torch.arange(length, device=device)
-        scores.append((score*weights).sum(1))
-    scores = torch.cat(scores)
-    best = int(scores.argmax())
-    return int(actions[best, 0]), {"best_plan": candidates[best].tolist(), "score": float(scores[best]), "plans": len(actions)}
+    def score_plans(candidates):
+        actions = F.pad(candidates, (0, model.horizon-length))
+        scores = []
+        for batch in actions.split(chunk_size):
+            count = len(batch)
+            valid = torch.arange(model.horizon, device=device)[None].expand(count, -1) < length
+            with autocast(device):
+                latent = model.sample(context.expand(count, -1, -1, -1), batch, ddim_steps,
+                                      common_noise.expand(count, -1, -1, -1, -1), valid)
+            decoded = decode(vae, latent[:, :length])
+            score = torch.stack([visual_score(decoded[:, t], current.expand(count, -1, -1, -1)) for t in range(length)], 1)
+            weights = 0.9**torch.arange(length, device=device)
+            scores.append((score*weights).sum(1))
+        return torch.cat(scores)
+    if length <= 2:
+        candidates = torch.tensor(list(itertools.product(range(6), repeat=length)), device=device)
+        scores = score_plans(candidates)
+        best = int(scores.argmax())
+        return int(candidates[best,0]), {"best_plan": candidates[best].tolist(), "score": float(scores[best]),
+                                      "plans": len(candidates), "search": "exhaustive"}
+    # Categorical cross-entropy search bounds n=3/5/... cost. It only evaluates
+    # NanoWM futures. Each round includes every first action and the incumbent.
+    probabilities = torch.full((length,6), 1/6, device=device)
+    best_plan, best_score = None, -float("inf")
+    evaluations = 0
+    for iteration in range(rounds):
+        candidates = torch.multinomial(probabilities, population, replacement=True, generator=gen).T
+        candidates[:6,0] = torch.arange(6, device=device)
+        if best_plan is not None:
+            candidates[-1] = best_plan
+        scores = score_plans(candidates)
+        evaluations += len(candidates)
+        best = int(scores.argmax())
+        if float(scores[best]) > best_score:
+            best_plan, best_score = candidates[best].clone(), float(scores[best])
+        winners = candidates[scores.topk(elites).indices]
+        frequencies = F.one_hot(winners,6).float().mean(0)
+        probabilities = 0.1/6+0.9*frequencies
+    return int(best_plan[0]), {"best_plan": best_plan.tolist(), "score": best_score, "plans": evaluations,
+                               "search": "categorical_cem", "population": population, "rounds": rounds}
 
 
 @torch.no_grad()
-def closed_loop(model, vae, bank_dir, split, device, ddim_steps=20, temperature=0., eval_seed=2027, out=None):
+def closed_loop(model, vae, bank_dir, split, device, ddim_steps=20, temperature=0., eval_seed=2027, out=None, planner=None, task_ids=None):
     bank = load_bank(bank_dir, split)
-    depth = read_json(Path(bank_dir)/"manifest.json")["config"]["depth"]
+    config = read_json(Path(bank_dir)/"manifest.json")["config"]
+    depth, renderer = episode_limit(config), renderer_version(config)
     env, params = simulator(depth)
     step = jax.jit(env.step)
     rng = np.random.default_rng(eval_seed)
     successes, traces = [], []
     by_type = {str(t): {"successes": 0, "episodes": 0} for t in GOAL_TYPES}
-    progress = Progress(f"Closed-loop {model.mode} {split} T={temperature}: эпизоды", len(bank["goal"]))
-    for task in range(len(bank["goal"])):
+    tasks = list(range(len(bank["goal"]))) if task_ids is None else list(task_ids)
+    if not tasks or len(set(tasks)) != len(tasks) or min(tasks) < 0 or max(tasks) >= len(bank["goal"]):
+        raise ValueError("Invalid evaluation task IDs")
+    progress = Progress(f"Closed-loop {model.mode} {split} T={temperature}: эпизоды", len(tasks))
+    for index, task in enumerate(tasks):
         ts = single_ts(bank, task)
-        frames, trace = [render_ts(ts)], []
+        frames, trace = [render_ts(ts, renderer)], []
         for t in range(depth):
             rgb = frames[-1]
             if model.mode == "video":
-                action, diagnostics = plan(model, vae, rgb, depth-t, device, ddim_steps, eval_seed+task*depth+t)
+                action, diagnostics = plan(model, vae, rgb, depth-t, device, ddim_steps, eval_seed+task*depth+t, **(planner or {}))
             else:
                 z = encode(vae, rgb[None], device)
                 with autocast(device):
@@ -141,7 +175,7 @@ def closed_loop(model, vae, bank_dir, split, device, ddim_steps=20, temperature=
                 diagnostics = {"logits": logits.cpu().tolist()}
             # The only real simulator step for this decision, after selecting the action.
             ts = step(params, ts, action)
-            frames.append(render_ts(ts))
+            frames.append(render_ts(ts, renderer))
             trace.append({"t": t, "action": action, "name": ACTION_NAMES[action], "reward": float(ts.reward), **diagnostics})
             if bool(ts.last()):
                 break
@@ -156,7 +190,7 @@ def closed_loop(model, vae, bank_dir, split, device, ddim_steps=20, temperature=
         if out is not None and (task < 3 or (not success and len(traces) <= 6)):
             Path(out).mkdir(parents=True, exist_ok=True)
             iio.imwrite(Path(out)/f"task_{task}_{'success' if success else 'failure'}.mp4", np.stack(frames), fps=2, macro_block_size=1)
-        progress.update(task+1, successes=sum(successes), sr=f"{np.mean(successes):.1%}")
+        progress.update(index+1, successes=sum(successes), sr=f"{np.mean(successes):.1%}")
     n, k = len(successes), sum(successes)
     # Wilson interval, plus exact finite-bank count. No population certainty claim.
     z = 1.959963984540054
@@ -165,6 +199,9 @@ def closed_loop(model, vae, bank_dir, split, device, ddim_steps=20, temperature=
     return {"split": split, "episodes": n, "successes": int(k), "sr": float(k/n),
             "wilson95": [float(center-half), float(center+half)], "temperature": temperature,
             "by_goal_type": by_type, "failures": traces,
+            "task_ids": task_ids,
+            "episode_max_steps": depth, "prediction_horizon": model.horizon, "renderer": renderer,
+            "planner": planner or {"population": 64, "rounds": 3, "elites": 8},
             "protocol": "first predicted action, real RGB update, replan; finite controlled bank"}
 
 
@@ -181,12 +218,39 @@ def offline(model, windows, device, examples=64, ddim_steps=20, vae=None, datase
     if model.action_head is not None:
         with autocast(device):
             logits = model.action_logits(current)
-        correct = (logits.argmax(-1) == actions) & expert
-        result["expert_action_accuracy"] = float(correct.sum()/expert.sum().clamp(min=1))
+        plan_expert = (expert & valid).long().cumprod(1).bool()
+        correct = (logits.argmax(-1) == actions) & plan_expert
+        result["expert_action_accuracy"] = float(correct.sum()/plan_expert.sum().clamp(min=1))
+        result["expert_plan_targets"] = int(plan_expert.sum())
     if model.mode != "policy" and vae is not None:
         # Bound VAE batches independently of validation sample count.
         count = min(8, len(current))
-        current, actions, targets, valid = (a[:count] for a in (current, actions, targets, valid))
+        # Cover first actions and prefer real movement, rather than the first
+        # eight linspace windows (which were all stationary in the old test).
+        chosen = list(range(count))
+        if dataset is not None:
+            arrays = load_arrays(dataset, split)
+            episodes, starts = windows.indices[ids].T
+            moving = np.any(arrays["agent_positions"][episodes,starts+1] != arrays["agent_positions"][episodes,starts], axis=-1)
+            first_actions = actions[:,0].cpu().numpy()
+            chosen = []
+            for a in range(6):
+                options = np.flatnonzero((first_actions == a) & moving)
+                if not len(options):
+                    options = np.flatnonzero(first_actions == a)
+                if len(options):
+                    chosen.append(int(options[0]))
+            for i in list(np.flatnonzero(moving))+list(range(len(ids))):
+                if len(chosen) >= count:
+                    break
+                if int(i) not in chosen:
+                    chosen.append(int(i))
+            chosen = chosen[:count]
+            result["generation_moving_windows"] = int(moving[chosen].sum())
+        current, actions, targets, valid = (a[chosen] for a in (current, actions, targets, valid))
+        generation_ids = ids[chosen]
+        result["generation_windows"] = count
+        result["generation_window_ids"] = generation_ids.tolist()
         noise = torch.randn(targets.shape, device=device, generator=gen)
         with autocast(device):
             pred = model.sample(current, actions, ddim_steps, noise, valid)
@@ -209,7 +273,7 @@ def offline(model, windows, device, examples=64, ddim_steps=20, vae=None, datase
         result["pose_metric_note"] = "template pose on generated and VAE-reconstructed frames; inspect VAE reconstruction diagnostics"
         if dataset is not None:
             arrays = load_arrays(dataset, split)
-            ep, start = windows.indices[ids[:count]].T
+            ep, start = windows.indices[generation_ids].T
             offsets = start[:, None]+np.arange(model.horizon)+1
             offsets = offsets.clip(max=arrays["actions"].shape[1])
             true = torch.as_tensor(np.array(arrays["observations"][ep[:, None], offsets]), device=device).permute(0,1,4,2,3).float()/255
@@ -230,7 +294,10 @@ def offline(model, windows, device, examples=64, ddim_steps=20, vae=None, datase
             if out is not None:
                 Path(out).mkdir(parents=True, exist_ok=True)
                 for i in range(min(4, count)):
-                    frames = torch.cat([true[i], rgb_pred[i]], -1).permute(0,2,3,1).cpu().numpy()
+                    length = int(valid[i].sum())
+                    pairs = torch.cat([true[i,:length], rgb_pred[i,:length]], -1)
+                    context_pair = torch.cat([context_rgb[i],context_rgb[i]], -1)[None]
+                    frames = torch.cat([context_pair, pairs]).permute(0,2,3,1).cpu().numpy()
                     iio.imwrite(Path(out)/f"forecast_{i}_truth_left.mp4", (frames.clip(0,1)*255).astype(np.uint8), fps=2, macro_block_size=1)
     return result
 
@@ -248,7 +315,7 @@ def counterfactual_metrics(model, vae, windows, device, ddim_steps=20, tasks=3):
     # through the collection's task IDs rather than relying on repeat count.
     arrays = load_arrays(windows.dataset, windows.split)
     results = []
-    for task in np.unique(arrays["task_ids"])[:tasks]:
+    for task in np.unique(arrays["task_ids"][windows.indices[:,0]])[:tasks]:
         episodes = np.flatnonzero(arrays["task_ids"] == task)[:6]
         ids = np.array([np.flatnonzero((windows.indices[:,0] == e)&(windows.indices[:,1] == 0))[0] for e in episodes])
         current, actions, target, valid, expert = windows.batch(ids, device)

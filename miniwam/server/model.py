@@ -77,13 +77,17 @@ class NanoWAM(nn.Module):
         self._features = None
         return output
 
-    def loss(self, current, actions, targets, valid, expert, image_weight=1., generator=None):
+    def loss(self, current, actions, targets, valid, expert, image_weight=1., generator=None, motion_weight=0.):
         total = torch.zeros((), device=current.device)
         metrics = {}
         if self.action_head is not None:
             logits = self.action_logits(current)
             ce = F.cross_entropy(logits.flatten(0, 1), actions.flatten(), reduction="none").reshape_as(valid)
-            action_loss = (ce*expert).sum()/expert.sum().clamp(min=1)
+            # An open-loop expert plan from this context is supervised only
+            # until the first exploratory/forced action. Later PPO actions in
+            # a perturbed state are not labels for this unperturbed plan.
+            plan_expert = (expert & valid).long().cumprod(1).bool()
+            action_loss = (ce*plan_expert).sum()/plan_expert.sum().clamp(min=1)
             total = total+action_loss
             metrics["action_loss"] = float(action_loss.detach())
         if self.mode != "policy":
@@ -98,7 +102,15 @@ class NanoWAM(nn.Module):
             masked_actions = torch.where(valid, actions, torch.zeros_like(actions))
             velocity_target = alpha*noise-sigma*targets
             predicted = self.velocity(current, noisy, masked_actions, times)
-            mse = (predicted.float()-velocity_target).square().mean((-3, -2, -1))
+            error = (predicted.float()-velocity_target).square()
+            if motion_weight:
+                # Foreground changes are sparse. Use only training images to
+                # weight their latent regions; no positions/goals/SR labels.
+                change = (targets-current[:,None]).detach().square().mean(2,keepdim=True)
+                weights = 1+motion_weight*change/(change.mean((-2,-1),keepdim=True)+1e-6)
+                mse = (error*weights).sum((-3,-2,-1))/(weights.sum((-3,-2,-1))*error.shape[2])
+            else:
+                mse = error.mean((-3, -2, -1))
             image_loss = (mse*valid).sum()/valid.sum().clamp(min=1)
             total = total+image_weight*image_loss
             metrics["image_loss"] = float(image_loss.detach())

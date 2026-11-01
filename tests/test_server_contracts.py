@@ -253,7 +253,8 @@ class DataAndRunContracts(unittest.TestCase):
     def test_configs_have_real_prediction_horizons(self):
         for path in (Path(__file__).resolve().parents[1]/"configs/server").glob("*.json"):
             c=json.loads(path.read_text());validate_config(c)
-            c["horizons"]=[c["bank"]["depth"]+1]
+            from miniwam.server.protocol import episode_limit
+            c["horizons"]=[episode_limit(c["bank"])+1]
             with self.assertRaises(ValueError): validate_config(c)
 
 

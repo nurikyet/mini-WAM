@@ -8,6 +8,7 @@ from .evaluation import visual_score
 from .vae import decode, encode
 from .xland import load_bank, render_ts, simulator, single_ts
 from .progress import Progress, log
+from .protocol import episode_limit, renderer_version
 import jax
 import numpy as np
 import torch
@@ -16,7 +17,8 @@ import torch
 @torch.no_grad()
 def scorer_controls(bank_dir, vae, device, out):
     bank = load_bank(bank_dir, "val")
-    depth = read_json(Path(bank_dir)/"manifest.json")["config"]["depth"]
+    config = read_json(Path(bank_dir)/"manifest.json")["config"]
+    depth, renderer = episode_limit(config), renderer_version(config)
     env, params = simulator(depth)
     step = jax.jit(env.step)
     report = {"scope": "validation only; diagnostic true-transition ceiling for visual task cost",
@@ -28,9 +30,9 @@ def scorer_controls(bank_dir, vae, device, out):
             ts = single_ts(bank, task)
             trace = []
             for t in range(depth):
-                rgb = render_ts(ts)
+                rgb = render_ts(ts, renderer)
                 candidates = [step(params, ts, action) for action in range(6)]
-                frames = np.stack([render_ts(s) for s in candidates])
+                frames = np.stack([render_ts(s, renderer) for s in candidates])
                 if label == "perfect_rgb":
                     predicted = torch.as_tensor(frames.copy(), device=device).permute(0,3,1,2).float()/255
                 else:
