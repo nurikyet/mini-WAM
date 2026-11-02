@@ -145,14 +145,13 @@ def summarize(out):
     return summary
 
 
-def pipeline(args, device):
+def prepare(args, device):
     from .xland import make_banks
     from .expert import train_expert
     from .dataset import collect
     from .vae import cache_latents
     from .vae import load_vae
     from .controls import scorer_controls
-    from .training import train
     config = read_json(args.config)
     validate_config(config)
     out = stage(args.out, {"pipeline": config}, args.resume)
@@ -182,6 +181,14 @@ def pipeline(args, device):
             scorer_controls(banks, load_vae(device), device, cache)
         else:
             log("ПРОПУСК: визуальный контроль уже сохранен", path=cache/"scorer_controls.json")
+    log("ОБЩИЕ ДАННЫЕ ГОТОВЫ", out=out, note="PPO, RGB, VAE и диагностические проверки завершены")
+    return out, config
+
+
+def pipeline(args, device):
+    from .training import train
+    out, config = prepare(args, device)
+    banks, dataset, cache = (out/name for name in ("banks", "dataset", "latents"))
     model_count = 3*len(config["horizons"])*len(config["seeds"])
     model_index = 0
     for mode in ("policy", "video", "joint"):
@@ -205,6 +212,10 @@ def main(argv=None):
     run.add_argument("--out", required=True)
     run.add_argument("--resume", action="store_true")
     run.add_argument("--require-perfect", action="store_true")
+    preparation = sub.add_parser("prepare", help="Prepare shared PPO, dataset and frozen VAE cache once; no WAM training")
+    preparation.add_argument("--config", required=True)
+    preparation.add_argument("--out", required=True)
+    preparation.add_argument("--resume", action="store_true")
     report = sub.add_parser("report")
     report.add_argument("--out", required=True)
     audit = sub.add_parser("audit")
@@ -220,7 +231,7 @@ def main(argv=None):
     ablation.add_argument("--out", required=True)
     ablation.add_argument("--mode", choices=("policy","video","joint"), required=True)
     ablation.add_argument("--horizon", type=int, required=True)
-    ablation.add_argument("--train-tasks", type=int, required=True)
+    ablation.add_argument("--train-tasks", type=int, help="Restrict training tasks; default: full training split")
     ablation.add_argument("--seed", type=int, default=3407)
     ablation.add_argument("--resume", action="store_true")
     args = parser.parse_args(argv)
@@ -249,11 +260,21 @@ def main(argv=None):
         run = Path(args.run)
         config = read_json(run/"resolved_config.json")
         validate_config(config)
+        stage(run,{"pipeline":config},True)
+        for name in ("banks", "dataset", "latents"):
+            if not completed(run/name,verify=False):
+                raise RuntimeError(f"Shared {name} is not complete. Run prepare first.")
+        if not read_json(run/"expert/gate.json")["passed"]:
+            raise RuntimeError("PPO gate failed; WAM training is not allowed")
         if args.horizon not in config["horizons"]:
             raise ValueError("Use a horizon declared in the source experiment")
-        model_config = {**config["model"], "train_task_limit": args.train_tasks}
+        model_config = dict(config["model"])
+        if args.train_tasks is not None:
+            model_config["train_task_limit"] = args.train_tasks
         train(run/"banks",run/"dataset",run/"latents",model_config,args.mode,args.horizon,
               args.seed,args.out,device,args.resume)
+    elif args.command == "prepare":
+        prepare(args,device)
     else:
         result = pipeline(args, device)
         return 2 if args.require_perfect and not result["all_sr_100"] else 0

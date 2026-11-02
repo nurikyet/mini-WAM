@@ -7,8 +7,8 @@ miniwam_out_root="${OUT_ROOT:-runs/server}"
 miniwam_target="${1:-single-goal}"
 miniwam_log_dir="${LOG_DIR:-logs}"
 case "$miniwam_target" in
-  single-goal|single-goal-smoke|smoke|one-step|two-step|three-step|all|diagnose-video) ;;
-  *) echo 'Usage: bash scripts/train_server.sh [single-goal|single-goal-smoke|all|smoke|one-step|two-step|three-step|diagnose-video]' >&2; exit 1 ;;
+  single-goal-parallel|single-goal-smoke-parallel|single-goal|single-goal-smoke|smoke|one-step|two-step|three-step|all|diagnose-video) ;;
+  *) echo 'Usage: bash scripts/train_server.sh [single-goal-parallel|single-goal-smoke-parallel|single-goal|single-goal-smoke|all|smoke|one-step|two-step|three-step|diagnose-video]' >&2; exit 1 ;;
 esac
 mkdir -p "$miniwam_log_dir"
 miniwam_log_dir="$(cd "$miniwam_log_dir" && pwd -P)"
@@ -39,6 +39,13 @@ run_stage() {
   log "ГОТОВО: $1; отчет=$miniwam_out_root/$1/summary.md"
 }
 
+stop_parallel() {
+  log "ОСТАНОВКА: сигнал координатору PID=$miniwam_coordinator_pid"
+  kill -TERM "$miniwam_coordinator_pid" 2>/dev/null || true
+  wait "$miniwam_coordinator_pid" || true
+  exit "$1"
+}
+
 main() {
   miniwam_started=$SECONDS
   trap 'finish_run "$?"' EXIT
@@ -55,6 +62,26 @@ main() {
   "$miniwam_python" -m miniwam.server doctor
   log 'ГОТОВО: doctor'
   case "$miniwam_target" in
+    single-goal-parallel|single-goal-smoke-parallel)
+      miniwam_parallel_config=single_goal
+      if [[ "$miniwam_target" == single-goal-smoke-parallel ]]; then
+        miniwam_parallel_config=single_goal_smoke
+      fi
+      miniwam_parallel_flags=(--resume)
+      if [[ "$miniwam_parallel_config" == single_goal ]]; then
+        miniwam_parallel_flags+=(--require-perfect)
+      fi
+      log "НАЧАЛО: общая подготовка, затем независимые модели; JOBS=${JOBS:-3}; GPU=0"
+      "$miniwam_python" -m miniwam.server.parallel \
+        --config "configs/server/$miniwam_parallel_config.json" \
+        --out "$miniwam_out_root/${miniwam_parallel_config}_parallel" \
+        --workers "${JOBS:-3}" "${miniwam_parallel_flags[@]}" &
+      miniwam_coordinator_pid=$!
+      log "КООРДИНАТОР: PID=$miniwam_coordinator_pid; для остановки: kill -TERM $miniwam_coordinator_pid"
+      trap 'stop_parallel 143' TERM
+      trap 'stop_parallel 130' INT
+      wait "$miniwam_coordinator_pid"
+      trap - TERM INT ;;
     single-goal|all) run_stage single_goal ;;
     single-goal-smoke)
       log 'НАЧАЛО: single-goal smoke — одна цель, несколько перемещений, n=1/3/5; проверка кода, не сходимости WAM'

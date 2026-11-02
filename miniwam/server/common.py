@@ -73,6 +73,12 @@ def require_server():
     if not str(Path.cwd().resolve()).startswith(str(Path.home().resolve()) + os.sep):
         raise RuntimeError("Run the cloned repository inside your persistent server HOME")
     torch.cuda.set_device(0)
+    memory_fraction = os.environ.get("MINIWAM_CUDA_MEMORY_FRACTION")
+    if memory_fraction is not None:
+        memory_fraction = float(memory_fraction)
+        if not 0 < memory_fraction <= 1:
+            raise ValueError("MINIWAM_CUDA_MEMORY_FRACTION must be in (0,1]")
+        torch.cuda.set_per_process_memory_fraction(memory_fraction, 0)
     torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "4")))
     return torch.device("cuda:0")
 
@@ -82,6 +88,10 @@ def runtime():
     versions = {p: md.version(p) for p in ("torch", "torchvision", "numpy", "jax", "jaxlib", "flax", "diffusers", "timm")}
     return {"versions": versions, "python": platform.python_version(), "source_sha256": source_digest(),
             "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+            "visible_cuda_devices": torch.cuda.device_count(),
+            "peak_cuda_allocated_gib": torch.cuda.max_memory_allocated(0)/2**30 if torch.cuda.is_available() else None,
+            "peak_cuda_reserved_gib": torch.cuda.max_memory_reserved(0)/2**30 if torch.cuda.is_available() else None,
+            "cuda_memory_fraction": os.environ.get("MINIWAM_CUDA_MEMORY_FRACTION"),
             "cuda": torch.version.cuda, "jax_platform": os.environ["JAX_PLATFORMS"],
             "git_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
 

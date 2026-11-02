@@ -81,6 +81,7 @@ printf 'FAKE STDOUT: %s\\n' "$*"
 printf 'FAKE STDERR: %s\\n' "$*" >&2
 case "$*" in
   *doctor*) exit "${FAKE_DOCTOR_CODE:-0}" ;;
+  *miniwam.server.parallel*) exit "${FAKE_PARALLEL_CODE:-0}" ;;
   *pipeline*)
     while [ -n "${FAKE_RELEASE_PATH:-}" ] && [ ! -f "$FAKE_RELEASE_PATH" ]; do sleep 0.02; done
     exit "${FAKE_PIPELINE_CODE:-0}" ;;
@@ -173,6 +174,27 @@ esac
         self.assertEqual(result.returncode,1)
         self.assertEqual(self.latest().resolve(),previous)
         self.assertIn("другой процесс",result.stdout)
+
+    def test_parallel_target_passes_worker_count_and_new_output_without_ablations(self):
+        result=self.run_script("single-goal-parallel",JOBS="3")
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        contents=self.latest("single-goal-parallel").read_text()
+        self.assertIn("miniwam.server.parallel",contents)
+        self.assertIn("--workers 3",contents)
+        self.assertIn("single_goal_parallel",contents)
+        self.assertIn("--require-perfect",contents)
+        self.assertNotIn("--train-tasks",contents)
+        self.assertIn("КООРДИНАТОР",contents)
+
+    def test_parallel_exit_codes_and_smoke_flags(self):
+        for code in (2,7):
+            result=self.run_script("single-goal-parallel",FAKE_PARALLEL_CODE=str(code))
+            self.assertEqual(result.returncode,code,result.stdout+result.stderr)
+        result=self.run_script("single-goal-smoke-parallel",JOBS="2")
+        self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+        contents=self.latest("single-goal-smoke-parallel").read_text()
+        self.assertIn("single_goal_smoke.json",contents)
+        self.assertNotIn("--require-perfect",contents)
 
 
 if __name__ == "__main__":

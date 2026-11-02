@@ -6,6 +6,8 @@
 
 План, серверные команды, объём данных и критерии SR:
 [исправленная постановка](docs/SINGLE_GOAL_RU.md).
+Параллельный запуск девяти моделей на одной H100:
+[инструкция](docs/PARALLEL_SERVER_RU.md).
 Прежний `one_step` был отладочной задачей возле цели; его результаты не
 подтверждают решение новой задачи. Новый SR100 ещё нужно получить на сервере.
 
@@ -13,15 +15,20 @@
 запуска в `logs/`. Одновременно вывод виден в терминале.
 
 ```bash
-bash scripts/train_server.sh single-goal-smoke
-bash scripts/train_server.sh single-goal
+JOBS=3 bash scripts/train_server.sh single-goal-parallel
 
 # Во второй SSH-сессии:
-tail -F logs/single-goal-latest.log
+tail -F logs/single-goal-parallel-latest.log
 ```
 
+PPO, данные и VAE готовятся один раз, после чего до трёх моделей обучаются
+одновременно. Результаты этой серии: `runs/server/single_goal_parallel/`;
+отдельные логи моделей: `job_logs/` внутри неё. При нехватке памяти повторите
+с `JOBS=2`, сохранив код и конфигурацию для продолжения из checkpoints.
+
 `all` и запуск без аргумента теперь запускают `single-goal`.
-Результаты: `runs/server/single_goal`. Старые `one-step`, `two-step`, `three-step`
+Это последовательная версия; результаты: `runs/server/single_goal`.
+Старые `one-step`, `two-step`, `three-step`
 оставлены для воспроизведения прежней постановки.
 
 В логе видны текущая стадия, прогресс и ETA, loss, validation SR, сохранение и
@@ -34,8 +41,9 @@ tail -F logs/single-goal-latest.log
 Иллюстрация новой среды (настоящий симулятор и эталонные действия, **не результат
 обученной модели**): `open runs/previews/single_goal/index.html`.
 
-После новой серии скачайте `runs/server/single_goal/` и передайте этот каталог
-в `scripts/view_results.py`. Ниже — просмотр прежних результатов.
+После параллельной серии скачайте `runs/server/single_goal_parallel/` и передайте
+этот каталог в `scripts/view_results.py`. У последовательной версии каталог
+называется `single_goal/`. Ниже — просмотр прежних результатов.
 
 После скачивания результатов на Mac:
 

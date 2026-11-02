@@ -250,6 +250,17 @@ class DataAndRunContracts(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,"server-only"):
                 require_server()
 
+    def test_cuda_memory_fraction_is_applied_before_training(self):
+        import os
+        with patch("platform.system",return_value="Linux"), \
+             patch("torch.cuda.is_available",return_value=True), \
+             patch("torch.cuda.set_device"),patch("torch.set_num_threads"), \
+             patch("torch.cuda.set_per_process_memory_fraction") as limit, \
+             patch.dict(os.environ,{"MINIWAM_CUDA_MEMORY_FRACTION":"0.3"}), \
+             patch("pathlib.Path.cwd",return_value=Path.home()/"fixture"):
+            require_server()
+        limit.assert_called_once_with(0.3,0)
+
     def test_configs_have_real_prediction_horizons(self):
         for path in (Path(__file__).resolve().parents[1]/"configs/server").glob("*.json"):
             c=json.loads(path.read_text());validate_config(c)
